@@ -28,6 +28,7 @@ while (Date.now() - t0 < 240000) {
     return false;
   };
   if (await click('button:has-text("Back on the Field")')) continue;
+  if (await click('button:has-text("Start Second Half")')) continue;
   if (await click("button:has-text(\"Coach's Call\")")) continue;
   if (await click('.box button:has-text("Continue")')) continue;
   if (await page.locator('.abtn:has-text("SNAP"), .abtn:has-text("READY")').count()) {

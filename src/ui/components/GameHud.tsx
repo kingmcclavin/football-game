@@ -138,9 +138,9 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
       {hud.mode === 'drive' && (
         <div className="panelov">
           <div className="box col" style={{ maxWidth: 560 }}>
-            <h3>While you were on the sideline</h3>
+            <h3>{hud.summaryTitle || 'While you were on the sideline'}</h3>
             <div className="ticker">{hud.ticker.map((t, i) => <div key={i} className={t.startsWith('★') ? 'sc' : ''}>{t}</div>)}</div>
-            <button className="btn primary big block" onClick={() => ctl.continueFromDrive()}>Back on the Field</button>
+            <button className="btn primary big block" onClick={() => ctl.continueFromDrive()}>{hud.summaryTitle === 'Halftime' ? 'Start Second Half' : 'Back on the Field'}</button>
           </div>
         </div>
       )}

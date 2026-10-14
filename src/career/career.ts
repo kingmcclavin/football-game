@@ -368,12 +368,49 @@ export function completeUserGame(league: League, career: Career, game: Game, g: 
     gameId: game.id, season: league.season, week: game.week, opp: home ? game.away : game.home, home, us, them,
     line, grade, xp: Math.round(xp), trustDelta: Math.round(trustDelta * 10) / 10,
     objectives: objResults.map((r) => ({ text: r.o.text, done: r.done, xp: r.o.xp })), notes, playoff, preseason: game.preseason,
+    top: topPerformers(league, g.box), teamStats: teamTotals(league, g.box, p.teamId),
   };
   career.recaps.push(recap);
   if (career.recaps.length > 60) career.recaps.shift();
   if (played && grade >= 85) addNews(league, { title: `${p.first} ${p.last} shines vs ${TEAMS[recap.opp].name}`, body: `A ${grade} game grade in a ${won ? 'win' : 'loss'}, ${us}-${them}.`, kind: 'user' });
   advanceWeek(league, career, game.id);
   return recap;
+}
+
+export function lineText(pos: Pos, l: StatLine): string {
+  const v = (k: keyof StatLine) => (l[k] as number | undefined) ?? 0;
+  if (pos === 'QB') return `${v('passCmp')}/${v('passAtt')}, ${v('passYds')} yds, ${v('passTD')} TD, ${v('passInt')} INT`;
+  if (v('rushAtt') >= v('rec') && v('rushAtt') > 0) return `${v('rushAtt')} car, ${v('rushYds')} yds, ${v('rushTD')} TD`;
+  if (v('rec') > 0) return `${v('rec')} rec, ${v('recYds')} yds, ${v('recTD')} TD`;
+  if (pos === 'K') return `${v('fgM')}/${v('fgA')} FG, ${v('xpM')}/${v('xpA')} XP`;
+  if (pos === 'P') return `${v('punts')} punts, ${v('puntYds')} yds`;
+  return `${v('tackles')} tkl, ${v('sacks')} sk, ${v('ints')} INT`;
+}
+
+function topPerformers(league: League, box: Record<string, StatLine>) {
+  return Object.entries(box)
+    .map(([pid, l]) => ({ pid, l, p: league.players[pid] }))
+    .filter((x) => x.p)
+    .map((x) => ({ ...x, v: playerValue(x.p, x.l) + (x.p.pos === 'QB' ? 0 : 2) }))
+    .sort((a, b) => b.v - a.v)
+    .slice(0, 6)
+    .map((x) => ({ pid: x.pid, name: `${x.p.first[0]}. ${x.p.last}`, team: x.p.teamId, pos: x.p.pos, text: lineText(x.p.pos, x.l) }));
+}
+
+function teamTotals(league: League, box: Record<string, StatLine>, teamId: number) {
+  const t = () => ({ yds: 0, pass: 0, rush: 0, to: 0 });
+  const us = t(), them = t();
+  for (const [pid, l] of Object.entries(box)) {
+    const p = league.players[pid];
+    if (!p) continue;
+    const side = p.teamId === teamId ? us : them;
+    side.pass += (l.passYds ?? 0);
+    side.rush += (l.rushYds ?? 0);
+    side.to += (l.passInt ?? 0) + (l.fumblesLost ?? 0);
+  }
+  us.yds = us.pass + us.rush;
+  them.yds = them.pass + them.rush;
+  return { us, them };
 }
 
 /** Simulate the user's game without playing it (practice squad or user choice). */

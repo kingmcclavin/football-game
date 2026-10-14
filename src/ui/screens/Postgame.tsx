@@ -44,6 +44,27 @@ export function Postgame() {
         <div className="muted" style={{ marginBottom: 8 }}>{statSummary(p.pos, recap.line)}</div>
         <div className="tablewrap"><table className="t"><thead><tr>{cols.map((c) => <th key={c.key} className="n">{c.label}</th>)}</tr></thead><tbody><tr className="me">{cols.map((c) => <td key={c.key} className="n">{statVal(recap.line, c.key)}</td>)}</tr></tbody></table></div>
       </Section>
+      {(recap.top || recap.teamStats) && (
+        <div className="grid g2 stack">
+          {recap.teamStats && (
+            <Section title="Team Stats">
+              <div className="tablewrap"><table className="t"><thead><tr><th></th><th className="n">{TEAMS[p.teamId]?.abbr ?? 'US'}</th><th className="n">{TEAMS[recap.opp].abbr}</th></tr></thead><tbody>
+                <tr><td>Total yards</td><td className="n">{recap.teamStats.us.yds}</td><td className="n">{recap.teamStats.them.yds}</td></tr>
+                <tr><td>Passing</td><td className="n">{recap.teamStats.us.pass}</td><td className="n">{recap.teamStats.them.pass}</td></tr>
+                <tr><td>Rushing</td><td className="n">{recap.teamStats.us.rush}</td><td className="n">{recap.teamStats.them.rush}</td></tr>
+                <tr><td>Turnovers</td><td className="n">{recap.teamStats.us.to}</td><td className="n">{recap.teamStats.them.to}</td></tr>
+              </tbody></table></div>
+            </Section>
+          )}
+          {recap.top && (
+            <Section title="Top Performers">
+              {recap.top.map((t) => (
+                <div key={t.pid} className={`row news ${t.pid === p.id ? 'warn' : ''}`} style={{ gap: 8 }}><TeamLogo id={t.team} size={22} /><b>{t.name}</b><span className="tiny muted">{t.pos}</span><span className="small grow right">{t.text}</span></div>
+              ))}
+            </Section>
+          )}
+        </div>
+      )}
       <div className="grid g2 stack">
         <Section title="Objectives">
           {recap.objectives.map((o) => (

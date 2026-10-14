@@ -234,6 +234,8 @@ export interface GameRecap {
   notes: string[];
   playoff?: boolean;
   preseason?: boolean;
+  top?: { pid: string; name: string; team: number; pos: Pos; text: string }[];
+  teamStats?: { us: { yds: number; pass: number; rush: number; to: number }; them: { yds: number; pass: number; rush: number; to: number } };
 }
 
 export interface Career {

@@ -9,7 +9,7 @@ import { clamp, fmtClock } from '../core/util';
 import { TEAMS } from '../data/teams';
 import { isDefense } from '../data/positions';
 import { DEF_FORMATIONS, DEF_PLAYS, OFF_PLAYS, type DefPlay, type OffPlay } from '../data/playbook';
-import { completeUserGame, simGrade, snapShare, userPlayer } from '../career/career';
+import { completeUserGame, lineText, simGrade, snapShare, userPlayer } from '../career/career';
 import { PLAYOFF_WEEK_BASE } from '../league/schedule';
 import { buildMods, DIFFICULTY } from './engine/mods';
 import { aiNextStep, forceQuarterEnd, preSnap, quickResolve, type NextStep } from './engine/gameLoop';
@@ -70,6 +70,7 @@ export interface HudState {
   playClock: number;
   canAudible: boolean;
   flip: boolean;
+  summaryTitle: string;
 }
 
 const dbgLog: string[] = [];
@@ -112,6 +113,8 @@ export class GameController {
   protected playClock = 0;
   protected runoffDone = false;
   protected readText = '';
+  protected summaryTitle = '';
+  protected halftimeShown = false;
 
   constructor(league: League, career: Career, game: Game, settings: Settings, onFinish: (r: GameRecap) => void) {
     this.league = league;
@@ -143,7 +146,7 @@ export class GameController {
       playcall: null, grade: this.liveGrade(), snaps: this.userSnaps, final: g.over, recap: null, charge: 0, camMode: this.scene?.camMode ?? (this.settings.camera as CamMode),
       isQB: this.user.pos === 'QB', lastPlay: g.log[g.log.length - 1]?.text ?? '', twoMinute: (g.quarter === 2 || g.quarter === 4) && g.clock <= 120,
       matchup: `${TEAMS[g.away].abbr} @ ${TEAMS[g.home].abbr}`,
-      playClock: Math.ceil(this.playClock), canAudible: this.canAudible(), flip: this.flip,
+      playClock: Math.ceil(this.playClock), canAudible: this.canAudible(), flip: this.flip, summaryTitle: this.summaryTitle,
     };
   }
 
@@ -268,6 +271,21 @@ export class GameController {
     let guard = 0;
     this.hud.banner = null;
     while (!g.over && guard++ < 600) {
+      if (g.quarter >= 3 && !this.halftimeShown && !this.isDrill) {
+        this.halftimeShown = true;
+        const me = g.box[this.user.id];
+        const lines = [...ticker.slice(-6), `HALFTIME — ${TEAMS[g.away].abbr} ${g.score[1]}, ${TEAMS[g.home].abbr} ${g.score[0]}`];
+        if (me) lines.push(`Your first half: ${lineText(this.user.pos, me)}`);
+        lines.push(`Snaps played: ${this.userSnaps} • Grade so far: ${this.liveGrade() || '—'}`);
+        this.summaryTitle = 'Halftime';
+        this.step = null;
+        this.mode = 'drive';
+        this.hud.ticker = lines;
+        this.autoT = -1;
+        this.updateScoreboard();
+        this.emitHud();
+        return;
+      }
       const step = aiNextStep(this.rng, g, this.sides);
       const involve = this.userInvolvement(step);
       if (involve) {
@@ -275,6 +293,7 @@ export class GameController {
           // show what happened while the user was off the field first
           this.step = null;
           this.mode = 'drive';
+          this.summaryTitle = 'While you were on the sideline';
           this.hud.ticker = ticker.slice(-10);
           this.autoT = this.settings.autoContinue ? 3.2 : -1;
           this.updateScoreboard();
@@ -304,6 +323,7 @@ export class GameController {
   /** Continue from the drive summary. */
   continueFromDrive() {
     this.hud.ticker = [];
+    if (this.summaryTitle === 'Halftime') { this.summaryTitle = ''; this.advance(); return; }
     const step = aiNextStep(this.rng, this.g, this.sides);
     if (this.userInvolvement(step)) this.setupUserStep(step);
     else this.advance();
