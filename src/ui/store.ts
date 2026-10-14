@@ -120,7 +120,7 @@ function lighten(hex: string, amt: number): string {
 function readable(primary: string, secondary: string): string {
   const l = hexLum(primary);
   if (l < 0.03) return hexLum(secondary) > 0.05 && hexLum(secondary) < 0.7 ? secondary : '#3a4a6b';
-  if (l < 0.09) return lighten(primary, 0.28);
+  if (l < 0.09) return lighten(primary, 0.4);
   if (l > 0.8) return secondary;
   return primary;
 }

@@ -263,8 +263,9 @@ export class Scene3D {
       pos.set(UX - fwdX * 7.5, 4.8, UZ - fwdZ * 7.5);
       look.set(UX + fwdX * 6, 1, UZ + fwdZ * 6);
     } else {
-      const back = sim.phase === 'pre' ? 14 : 15;
-      const height = sim.kind === 'kickoff' || sim.kind === 'punt' ? 13 : 9.5;
+      const portrait = this.camera.aspect < 1;
+      const back = (sim.phase === 'pre' ? 14 : 15) * (portrait ? 1.45 : 1);
+      const height = (sim.kind === 'kickoff' || sim.kind === 'punt' ? 13 : 9.5) * (portrait ? 1.5 : 1);
       const [X, Z] = this.toWorld(fx - viewSign * back, fy);
       // keep the camera a bit closer to the middle of the field for context
       const zMid = Z * 0.65;

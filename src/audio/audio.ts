@@ -8,7 +8,7 @@ class AudioEngine {
   private noiseBuf: AudioBuffer | null = null;
 
   unlock() {
-    if (!this.enabled) return;
+    if (!this.enabled || typeof window === 'undefined') return;
     try {
       if (!this.ctx) {
         const AC = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);

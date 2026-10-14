@@ -50,6 +50,7 @@ export class DrillController extends GameController {
   onDone: (score: number) => void;
   isDrill = true;
   private oppTeam: number;
+  private myTeam: number;
   private combine: boolean;
 
   constructor(league: League, career: Career, settings: Settings, kind: DrillKind, onDone: (score: number) => void, combine = false) {
@@ -60,6 +61,7 @@ export class DrillController extends GameController {
     super(league, career, fake, settings, () => undefined);
     this.kind = kind;
     this.oppTeam = opp;
+    this.myTeam = home;
     this.onDone = onDone;
     this.combine = combine;
   }
@@ -91,7 +93,7 @@ export class DrillController extends GameController {
   }
 
   private mate(pos: Pos, idx = 0, teamId?: number): SimPlayer | undefined {
-    const team = this.league.teams[teamId ?? this.user.teamId] ?? this.league.teams[0];
+    const team = this.league.teams[teamId ?? this.myTeam] ?? this.league.teams[0];
     const list = depthPlayers(this.league, team, pos).filter((p: Player) => p.id !== this.user.id);
     const p = list[idx] ?? list[0];
     return p ? toSim(p) : undefined;
@@ -119,7 +121,7 @@ export class DrillController extends GameController {
 
   private buildDrillKick(params: KickParams | null) {
     const dist = [30, 38, 45, 50, 55][this.rep - 1];
-    const kTeam = this.league.teams[this.user.teamId];
+    const kTeam = this.league.teams[this.myTeam];
     const rTeam = this.league.teams[this.oppTeam];
     const kind = this.kind === 'kick' ? 'fg' : 'punt';
     const unit = kickingUnit(this.league, kTeam, kind, { pid: this.user.id, mods: this.userMods });
@@ -222,7 +224,7 @@ export class DrillController extends GameController {
       seed: this.rng.int(1, 1e9), penalties: false, featureUser: 1, drill: true,
     });
     this.scene?.setPlay(this.sim, {
-      offTeam: userSide === 'off' ? this.user.teamId : opp, defTeam: userSide === 'off' ? opp : this.user.teamId, homeTeam: this.user.teamId, dir: 1,
+      offTeam: userSide === 'off' ? this.myTeam : opp, defTeam: userSide === 'off' ? opp : this.myTeam, homeTeam: this.myTeam, dir: 1,
       userAppearance: this.career.appearance, showRoutes: true, qbView: k === 'qb',
     });
   }

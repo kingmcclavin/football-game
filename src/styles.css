@@ -251,3 +251,14 @@ table.t td.n, table.t th.n { text-align: right; }
 .empty { padding: 24px; text-align: center; color: var(--muted); }
 .badge { font-family: var(--display); font-weight: 800; padding: 2px 8px; border-radius: 6px; background: var(--panel2); font-size: 0.9rem; }
 .badge.ST { background: #1f6f43; } .badge.RT { background: #2b5797; } .badge.BK { background: #5a4a1b; } .badge.PS { background: #5b1f2b; }
+.scorebug .dd, .scorebug .tm, .scorebug .mid { white-space: nowrap; }
+@media (max-width: 600px) and (orientation: portrait) {
+  .scorebug { top: calc(58px + var(--safe-t)); }
+  .scorebug .tm { min-width: 58px; font-size: 1rem; padding: 3px 7px; }
+  .scorebug .tm .sc { font-size: 1.2rem; }
+  .scorebug .mid { min-width: 70px; font-size: 0.85rem; }
+  .scorebug .dd { font-size: 0.85rem; padding: 3px 7px; }
+  .rotate-hint { top: calc(100px + var(--safe-t)); }
+  .assign { bottom: calc(118px + var(--safe-b)); max-width: 92vw; font-size: 0.8rem; }
+  .banner { top: 26%; }
+}
