@@ -30,8 +30,8 @@ export interface SideCtx {
   exclude?: Set<string>;
 }
 
-export function buildSide(league: League, team: TeamState): SideCtx {
-  const d = (pos: Pos) => depthPlayers(league, team, pos);
+export function buildSide(league: League, team: TeamState, excludeId?: string): SideCtx {
+  const d = (pos: Pos) => depthPlayers(league, team, pos).filter((p) => p.id !== excludeId);
   return {
     team,
     r: teamRatings(league, team),
@@ -45,7 +45,7 @@ export function buildSide(league: League, team: TeamState): SideCtx {
     dbs: [...d('CB').slice(0, 3), ...d('S').slice(0, 2)],
     k: d('K')[0],
     p: d('P')[0] ?? d('K')[0],
-    kr: pickReturner(league, team),
+    kr: pickReturner(league, team, excludeId),
   };
 }
 

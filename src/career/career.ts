@@ -194,6 +194,7 @@ export function runDraft(league: League, career: Career, combineScore: number): 
   joinTeam(league, p, teamId);
   career.earnings += p.contract.bonus;
   career.phase = 'draft';
+  refreshRole(league, career);
   addNews(league, {
     title: `${TEAMS[teamId].name} select ${p.first} ${p.last}`,
     body: `${teamName(teamId)} take the ${p.pos} in round ${round} (pick ${pick}). ${career.wantsTeamId !== undefined ? 'A dream landing spot for the rookie.' : ''}`,

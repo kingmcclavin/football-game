@@ -29,7 +29,7 @@ export function generateLeague(seed: number, season = 2026): League {
     season,
     seasonIndex: 0,
     phase: 'preseason',
-    week: 0,
+    week: -3,
     players: {},
     teams: [],
     schedule: [],

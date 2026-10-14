@@ -155,8 +155,8 @@ export function returnUnit(league: League, team: TeamState, kind: 'fg' | 'punt' 
   return out;
 }
 
-export function pickReturner(league: League, team: TeamState): Player | undefined {
-  const cands = [...depthPlayers(league, team, 'WR').slice(2), ...depthPlayers(league, team, 'RB').slice(1), ...depthPlayers(league, team, 'CB').slice(2)];
+export function pickReturner(league: League, team: TeamState, excludeId?: string): Player | undefined {
+  const cands = [...depthPlayers(league, team, 'WR').slice(2), ...depthPlayers(league, team, 'RB').slice(1), ...depthPlayers(league, team, 'CB').slice(2)].filter((p) => p.id !== excludeId);
   cands.sort((a, b) => (b.attrs.spd ?? 0) + (b.attrs.agi ?? 0) - (a.attrs.spd ?? 0) - (a.attrs.agi ?? 0));
   return cands[0] ?? depthPlayers(league, team, 'WR')[0];
 }
