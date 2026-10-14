@@ -4,4 +4,3 @@ dist
 *.log
 test-results
 playwright-report
-scripts/_shot.mjs

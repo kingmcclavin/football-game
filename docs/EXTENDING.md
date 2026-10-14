@@ -1,4 +1,4 @@
-# Extending Gridiron Legacy
+# Extending Retro Gridiron
 
 The game is data-driven: teams, positions, archetypes, abilities and plays are plain TypeScript tables. Most additions need no engine changes.
 
@@ -14,7 +14,7 @@ The game is data-driven: teams, positions, archetypes, abilities and plays are p
 
 - Name pools: `src/data/names.ts`.
 - Attributes and their OVR weights per position: `POS_ATTRS` in `src/data/positions.ts`. `calcOvr` turns attributes into the 0-99 overall.
-- Physical baselines for every position (used by the 3D sim): `PHYS` in `src/league/players.ts`.
+- Physical baselines for every position (used by the real-time play sim): `PHYS` in `src/league/players.ts`.
 - Roster size per position: `ROSTER_TEMPLATE`; starters per position: `STARTERS`.
 - Salary curve: `marketValue` in `src/league/players.ts`.
 - League generation (team strength, depth targets, free agents): `src/league/generate.ts`.
@@ -33,11 +33,13 @@ The game is data-driven: teams, positions, archetypes, abilities and plays are p
 - **Offensive plays** (`OFF_PLAYS`) assign each slot a `route`, `block`, `lead`, `run` (with hole offset and style), `fake` or `checkRelease`, list a read `progression`, and carry `tags` the AI coach uses to pick plays (`run`, `pass`, `short`, `medium`, `deep`, `goal`, `shortyd`, `screen`, `pa`, `qbrun`, `hurry`).
 - **Defensive plays** (`DEF_PLAYS`) choose a formation from `DEF_FORMATIONS`, a coverage (`c0`, `c1`, `c2`, `c2m`, `c3`, `c4`) and blitzers. Man matchups and zone landmarks are derived automatically by `PlaySim.buildScrimmage`.
 
+- **Unlock levels**: `PLAY_UNLOCK` maps an offensive play id to the career level at which the user may call it. Plays not listed are open from level 1. The AI coach and the coach's suggested call are never restricted.
+
 New plays immediately appear in the play-call screen, the Playbook screen (with an auto-generated diagram), the AI coach's pool (by tags) and the quick simulator.
 
 ## Positions
 
-Every position is already playable. Adding a brand-new position touches:
+The engine supports all 12 positions. Career creation offers the subset in `CREATE_POS` (QB, RB, WR, TE, LB, DB, DL, K) with display names from `CREATE_LABEL`; add a position there to offer it. Adding a brand-new position touches:
 
 1. `Pos` in `src/core/types.ts`, plus `POS_ATTRS`, `POS_LABEL`, `POS_BODY`, `ROSTER_TEMPLATE`, `STARTERS`, `PLAYABLE` and archetypes in `src/data/positions.ts`, and `PHYS` in `src/league/players.ts`.
 2. Slot mappings in `src/data/playbook.ts` (`OFF_SLOT_POS` / `DEF_SLOT_POS`) and formations that use it.
@@ -47,15 +49,31 @@ Every position is already playable. Adding a brand-new position touches:
 
 - `src/game/engine/rules.ts` is the only place that changes score, downs, possession and the clock (`applyOutcome`). Anything that produces a play result returns a `PlayOutcome` (`src/game/engine/types.ts`).
 - `src/game/engine/PlaySim.ts` is the real-time play simulation. It is deterministic for a seed and DOM-free, so it can be tested headless (`tests/playsim.test.ts`). AI behaviours live in `aiDesire` and the helpers it calls (`routeAI`, `passBlockAI`, `manAI`, `zoneAI`, `runnerAI`, `pursue`, ...).
-- `src/game/engine/quickSim.ts` resolves plays statistically for snaps without the user and for every other league game. Keep its distributions in line with the 3D sim if you rebalance.
+- `src/game/engine/quickSim.ts` resolves plays statistically for snaps without the user and for every other league game. Keep its distributions in line with the real-time sim if you rebalance.
 - Difficulty parameters: `DIFFICULTY` in `src/game/engine/mods.ts`.
+
+## Pixel art and rendering
+
+- All art is drawn procedurally with `fillRect` at low resolution and upscaled by whole numbers (`src/game/pixel/`). There are no image assets.
+- `sprites.ts`: team kits (`kitFor`), the player sprite (`drawPlayer`, poses `stand/stance/run/throw/catch/block/down/dive/celebrate/kick/juke/hold`), the ball, the 3x5 bitmap font (`drawText`), team logos rasterized from each team's emblem shape (`drawLogo`, `logoDataUrl`) and menu portraits (`portraitDataUrl`, `bodyDataUrl`). New appearance options go in the option arrays at the top and in `drawPlayer`/`drawPortrait`.
+- `renderer.ts`: `Renderer2D` draws the field (cached), crowd, players sorted by depth, ball flight, routes, the aim line and confetti. Field coordinates map to screen with `sx/sy`; `toField` and `deltaToField` convert pointer positions for drag aiming. Camera zoom levels are the three `CamMode`s.
+- Drag-to-aim lives in `GameController.aimBegin/aimMove/aimEnd` and calls `PlaySim.throwToPoint(x, y, power)`; tap-to-throw uses `PlaySim.throwTo`.
+
+## Audio
+
+`src/audio/audio.ts` synthesizes everything with WebAudio. Music tracks are step-sequenced note arrays in `SONGS` (MIDI note numbers, 16 steps per bar); add a track there and request it with `audio.music(name)`. Fanfares are in `jingle`.
+
+## Tutorials
+
+First-time tutorials are per position group in `TUTORIALS` (`src/ui/components/Tutorial.tsx`). Seen groups are stored in `settings.tutorialsSeen`; Settings can reset them and the pause menu replays them.
 
 ## Career features
 
 - Weekly loop, XP, trust, roles, contracts and retirement: `src/career/career.ts`.
 - XP curve, skill point costs and abilities: `src/career/progression.ts`.
 - Objectives: `src/career/objectives.ts`. Career decision events: `src/career/events.ts` (add an object with choices and effects).
-- Awards and records: `src/league/season.ts`. Hall of Fame scoring: `legacyScore` in `src/league/offseason.ts` and `retire` in `src/career/career.ts`.
+- Start modes (`rookie`, `established`, `undrafted`) are handled in `createCareer`.
+- Awards and records: `src/league/season.ts` (the championship MVP is picked in `finalizeGame` for the final and awarded in `closeSeason`). Hall of Fame scoring: `legacyScore` in `src/league/offseason.ts` and `retire` in `src/career/career.ts`.
 
 ## Saves
 

@@ -23,7 +23,7 @@ export function GameScreen() {
       });
       c.mount(canvasRef.current!);
     } catch (e) {
-      setErr((e as Error).message || 'Could not start the 3D engine (WebGL unavailable?).');
+      setErr((e as Error).message || 'Could not start the game renderer.');
       return;
     }
     setCtl(c);
@@ -44,7 +44,7 @@ export function GameScreen() {
       <canvas ref={canvasRef} />
       {ctl && <GameHud ctl={ctl} settings={app.settings} onQuit={quit} />}
       {err && (
-        <div className="panelov"><div className="box col center"><h2>3D unavailable</h2><p className="muted">{err}</p><button className="btn primary" onClick={() => store.go('hub')}>Back</button></div></div>
+        <div className="panelov"><div className="box col center"><h2>Game unavailable</h2><p className="muted">{err}</p><button className="btn primary" onClick={() => store.go('hub')}>Back</button></div></div>
       )}
     </div>
   );

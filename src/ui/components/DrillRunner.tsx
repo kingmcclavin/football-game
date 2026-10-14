@@ -3,7 +3,7 @@ import { store, useApp } from '../store';
 import { DrillController, type DrillKind } from '../../game/DrillController';
 import { GameHud } from './GameHud';
 
-/** Full-screen 3D drill session. */
+/** Full-screen drill session. */
 export function DrillRunner({ kind, combine, onDone, onQuit }: { kind: DrillKind; combine?: boolean; onDone: (score: number) => void; onQuit: () => void }) {
   const app = useApp();
   const ref = useRef<HTMLCanvasElement>(null);
@@ -28,7 +28,7 @@ export function DrillRunner({ kind, combine, onDone, onQuit }: { kind: DrillKind
     <div className="gamewrap">
       <canvas ref={ref} />
       {ctl && <GameHud ctl={ctl} settings={app.settings} onQuit={onQuit} />}
-      {err && <div className="panelov"><div className="box col center"><h2>3D unavailable</h2><p className="muted">{err}</p><button className="btn primary" onClick={() => onDone(50)}>Skip with average score</button></div></div>}
+      {err && <div className="panelov"><div className="box col center"><h2>Game unavailable</h2><p className="muted">{err}</p><button className="btn primary" onClick={() => onDone(50)}>Skip with average score</button></div></div>}
     </div>
   );
 }

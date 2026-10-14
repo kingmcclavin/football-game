@@ -5,7 +5,7 @@
 //   x: 0 = own goal line, 100 = opponent goal line (end zones extend to -10/110)
 //   y: 0..53.33 across the field (+y = offense's left)
 // The sim is deterministic for a given seed and runs headless (used by tests,
-// drills and the 3D game). The renderer only reads agent/ball state.
+// drills and the live game). The renderer only reads agent/ball state.
 // ---------------------------------------------------------------------------
 import type { Attrs, Pos } from '../../core/types';
 import { Rng } from '../../core/rng';

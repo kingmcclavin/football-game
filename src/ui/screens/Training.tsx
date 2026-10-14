@@ -44,7 +44,7 @@ export function Training() {
       <div className="grid g2 stack">
         <Section title={info.name}>
           <p className="muted">{info.desc}</p>
-          <div className="small muted">Five live reps in 3D • scored 0–100 • rewards scale with your score and fatigue</div>
+          <div className="small muted">Five live reps • scored 0–100 • rewards scale with your score and fatigue</div>
           <div style={{ marginTop: 10 }}>
             <div className="row between small"><span>Fatigue</span><b>{Math.round(career.fatigue)}</b></div>
             <Bar value={career.fatigue} />

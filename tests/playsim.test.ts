@@ -109,7 +109,7 @@ describe('play flipping', () => {
 describe('PlaySim drag-to-aim passing', () => {
   it('completes passes thrown at a spot in front of the most open receiver', async () => {
     const { buildMods } = await import('../src/game/engine/mods');
-    const qbId = off.depth.QB[0];
+    const qbId = off.depth.QB![0];
     const qbP = league.players[qbId];
     const user = { pid: qbP.id, mods: buildMods([]) };
     const passPlays = OFF_PLAYS.filter((p) => p.type === 'pass' && !p.tags.includes('special') && p.formation !== 'goalline');

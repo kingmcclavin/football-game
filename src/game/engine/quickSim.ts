@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Statistical play resolution. Used for every snap the user is not on the
 // field for, and for all league games the user does not play. It produces the
-// same PlayOutcome as the 3D sim so the rules engine and stats stay unified.
+// same PlayOutcome as the real-time sim so the rules engine and stats stay unified.
 // ---------------------------------------------------------------------------
 import type { League, Player, Pos, TeamState } from '../../core/types';
 import { Rng } from '../../core/rng';
