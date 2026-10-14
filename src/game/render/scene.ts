@@ -245,6 +245,14 @@ export class Scene3D {
     if (sim.phase === 'pre') { fx = sim.los; fy = b.y; }
     else if (carrier) { fx = carrier.x; fy = carrier.y; }
     else if (b.state === 'air' || b.state === 'kicked') { fx = b.x; fy = b.y; fz = Math.min(b.z, 8) * 0.4; }
+    // keep the user's player in frame when they are away from the ball
+    let spread = 0;
+    if (u && carrier !== u && sim.kind === 'scrimmage' && u.slot !== 'QB' && this.camMode === 'broadcast') {
+      const w = sim.phase === 'pre' ? 0.4 : 0.5;
+      spread = Math.abs(u.y - fy);
+      fx += (u.x - fx) * w * 0.5;
+      fy += (u.y - fy) * w;
+    }
     // perspective side: offense looks downfield (+x), user defenders look at the offense
     const viewSign = u && u.side === 'def' && sim.kind === 'scrimmage' ? -1 : 1;
     const look = new THREE.Vector3(...this.v3(fx + viewSign * 6, fy, fz));
@@ -264,8 +272,8 @@ export class Scene3D {
       look.set(UX + fwdX * 6, 1, UZ + fwdZ * 6);
     } else {
       const portrait = this.camera.aspect < 1;
-      const back = (sim.phase === 'pre' ? 14 : 15) * (portrait ? 1.45 : 1);
-      const height = (sim.kind === 'kickoff' || sim.kind === 'punt' ? 13 : 9.5) * (portrait ? 1.5 : 1);
+      const back = ((sim.phase === 'pre' ? 14 : 15) + spread * 0.22) * (portrait ? 1.45 : 1);
+      const height = ((sim.kind === 'kickoff' || sim.kind === 'punt' ? 13 : 9.5) + spread * 0.14) * (portrait ? 1.5 : 1);
       const [X, Z] = this.toWorld(fx - viewSign * back, fy);
       // keep the camera a bit closer to the middle of the field for context
       const zMid = Z * 0.65;
