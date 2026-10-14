@@ -214,7 +214,7 @@ export class PlaySim {
   handedOff = false;
   qbCrossed = false;
   throwWind = -1; // time when wind-up ends
-  pending: { target: number; power: number; leadX: number; leadY: number; away?: boolean } | null = null;
+  pending: { target: number; power: number; leadX: number; leadY: number; away?: boolean; pt?: { x: number; y: number } } | null = null;
   airYards = 0;
   catchX = 0;
   turnover = false;
@@ -598,6 +598,22 @@ export class PlaySim {
     return true;
   }
 
+  /**
+   * User QB throw at a spot on the field (drag-to-aim). The pass is intended for
+   * whichever route runner is projected closest to that spot when the ball arrives.
+   */
+  throwToPoint(x: number, y: number, power: number) {
+    const qb = this.agents[this.qb];
+    if (!qb || !this.canThrow()) return false;
+    const recs = this.receivers();
+    if (!recs.length) return false;
+    this.pending = { target: recs[0].i, power, leadX: 0, leadY: 0, pt: { x, y } };
+    this.throwWind = this.t + 0.24 * mod(qb.mods, 'releaseTime', 1);
+    qb.anim = 'throw';
+    qb.animT = 0;
+    return true;
+  }
+
   throwAway() {
     const qb = this.agents[this.qb];
     if (!qb || this.ball.state !== 'held' || this.ball.holder !== qb.i || this.passThrown || this.pending) return false;
@@ -931,7 +947,7 @@ export class PlaySim {
     }
   }
 
-  private releasePass(qb: SimAgent, p: { target: number; power: number; leadX: number; leadY: number; away?: boolean }) {
+  private releasePass(qb: SimAgent, p: { target: number; power: number; leadX: number; leadY: number; away?: boolean; pt?: { x: number; y: number } }) {
     const a = qb.p.attrs;
     const power = clamp(p.power, 0, 1);
     const thp = rating(a, 'thp', 60);
@@ -949,18 +965,31 @@ export class PlaySim {
       this.emit({ type: 'throw' });
       return;
     }
-    const r = this.agents[p.target];
-    // Predict receiver position along route (two iterations).
+    let r = this.agents[p.target];
     let px = r.x, py = r.y;
-    T = dist(qb.x, qb.y, px, py) / speed;
-    for (let k = 0; k < 3; k++) {
-      const pr = this.predict(r, T);
-      px = pr.x; py = pr.y;
+    if (p.pt) {
+      // Aimed at a spot: the intended receiver is the one projected nearest to it.
+      px = clamp(p.pt.x, qb.x - 10, 110);
+      py = clamp(p.pt.y, -1, FIELD_W + 1);
       T = dist(qb.x, qb.y, px, py) / speed;
+      let bd = Infinity;
+      for (const rr of this.receivers()) {
+        const pr = this.predict(rr, T);
+        const d = dist(pr.x, pr.y, px, py);
+        if (d < bd) { bd = d; r = rr; }
+      }
+    } else {
+      // Predict receiver position along route (two iterations).
+      T = dist(qb.x, qb.y, px, py) / speed;
+      for (let k = 0; k < 3; k++) {
+        const pr = this.predict(r, T);
+        px = pr.x; py = pr.y;
+        T = dist(qb.x, qb.y, px, py) / speed;
+      }
+      // Lead / placement nudge (in yards).
+      px += clamp(p.leadX, -1, 1) * 2.2;
+      py += clamp(p.leadY, -1, 1) * 2.2;
     }
-    // Lead / placement nudge (in yards).
-    px += clamp(p.leadX, -1, 1) * 2.2;
-    py += clamp(p.leadY, -1, 1) * 2.2;
     // Arm strength limits how far the ball can travel in the air.
     const maxD = this.maxThrow(qb);
     let airDist = dist(qb.x, qb.y, px, py);

@@ -21,7 +21,7 @@ import {
 import { PlaySim, type KickParams, type SimAgent, type SimEvent, type KickSetup, type ScrimmageSetup } from './engine/PlaySim';
 import { defenseLineup, formationUsesUser, kickingUnit, offenseLineup, pickReturner, returnUnit, type UserOnField } from './engine/lineup';
 import type { PlayOutcome } from './engine/types';
-import { Scene3D, type CamMode } from './render/scene';
+import { Renderer2D, type CamMode, type AimState } from './pixel/renderer';
 import { input, type ActionName } from './input/Input';
 import { audio } from '../audio/audio';
 
@@ -85,7 +85,7 @@ export class GameController {
   sides: [SideCtx, SideCtx];
   userSideIdx: 0 | 1;
   user: Player;
-  scene: Scene3D | null = null;
+  scene: Renderer2D | null = null;
   sim: PlaySim | null = null;
   step: NextStep | null = null;
   mode: GameMode = 'pregame';
@@ -99,6 +99,9 @@ export class GameController {
   protected userSnaps = 0;
   protected notes: string[] = [];
   protected charge: { idx: number; t0: number } | null = null;
+  /** Drag-to-aim passing state (field coordinates). */
+  aim: AimState = { active: false, x: 0, y: 0, target: -1 };
+  protected aimFrom: { cx: number; cy: number; t: number } | null = null;
   protected unsub: (() => void)[] = [];
   protected autoT = -1;
   protected snapDelay = -1;
@@ -168,7 +171,7 @@ export class GameController {
 
   // --------------------------------------------------------------------------
   mount(canvas: HTMLCanvasElement) {
-    this.scene = new Scene3D(canvas, this.game.home, this.settings.graphics);
+    this.scene = new Renderer2D(canvas, this.game.home, this.settings.graphics);
     this.scene.camMode = this.settings.camera as CamMode;
     const resize = () => {
       const r = canvas.parentElement!.getBoundingClientRect();
@@ -616,10 +619,86 @@ export class GameController {
   }
 
   protected fieldMove(): { x: number; y: number; sprint: boolean } {
-    const m = input.move();
-    if (!this.scene) return { x: m.y, y: -m.x, sprint: m.sprint };
+    const raw = input.move();
+    const sens = this.settings.stickSensitivity || 1;
+    let mx = raw.x * sens, my = raw.y * sens;
+    const n = Math.hypot(mx, my);
+    if (n > 1) { mx /= n; my /= n; }
+    if (!this.scene) return { x: my, y: -mx, sprint: raw.sprint };
     const b = this.scene.cameraFieldBasis();
-    return { x: b.fx * m.y + b.rx * m.x, y: b.fy * m.y + b.ry * m.x, sprint: m.sprint };
+    return { x: b.fx * my + b.rx * mx, y: b.fy * my + b.ry * mx, sprint: raw.sprint };
+  }
+
+  /** True when the user is the quarterback and can throw right now. */
+  canAim(): boolean {
+    return !!this.sim && this.mode === 'live' && !!this.sim.user && this.sim.user.slot === 'QB' && this.sim.canThrow();
+  }
+
+  /** Drag-to-aim: press anywhere on the field. Client (CSS) coordinates. */
+  aimBegin(cx: number, cy: number): boolean {
+    if (!this.canAim()) return false;
+    this.aimFrom = { cx, cy, t: performance.now() };
+    this.aim = { active: false, x: 0, y: 0, target: -1 };
+    return true;
+  }
+
+  aimMove(cx: number, cy: number) {
+    const sim = this.sim;
+    if (!this.aimFrom || !sim || !this.scene) return;
+    if (!this.canAim()) { this.aimCancel(); return; }
+    const dx = cx - this.aimFrom.cx, dy = cy - this.aimFrom.cy;
+    if (Math.hypot(dx, dy) < 10) { this.aim.active = false; return; }
+    const qb = sim.agents[sim.qb];
+    const k = 2.2 * (this.settings.aimSensitivity || 1);
+    const d = this.scene.deltaToField(dx * k, dy * k);
+    let ax = qb.x + d.dx, ay = qb.y + d.dy;
+    const maxD = sim.maxThrow(qb);
+    const len = Math.hypot(ax - qb.x, ay - qb.y);
+    if (len > maxD) { ax = qb.x + ((ax - qb.x) / len) * maxD; ay = qb.y + ((ay - qb.y) / len) * maxD; }
+    ay = clamp(ay, -1, 53.333 + 1);
+    // Highlight the receiver projected nearest to the aim point.
+    const T = Math.hypot(ax - qb.x, ay - qb.y) / 24;
+    let best = -1, bd = 4.5;
+    for (const r of sim.receivers()) {
+      const p = sim.predict(r, T);
+      const dd = Math.hypot(p.x - ax, p.y - ay);
+      if (dd < bd) { bd = dd; best = r.i; }
+    }
+    this.aim = { active: true, x: ax, y: ay, target: best };
+  }
+
+  aimEnd(cx: number, cy: number) {
+    const sim = this.sim;
+    const from = this.aimFrom;
+    this.aimFrom = null;
+    if (!from || !sim || !this.scene || !this.canAim()) { this.aimCancel(); return; }
+    const moved = Math.hypot(cx - from.cx, cy - from.cy);
+    if (moved < 10) {
+      // Tap: throw to the receiver closest to the tapped spot.
+      const p = this.scene.cssToCanvas(cx, cy);
+      const f = this.scene.toField(p.px, p.py);
+      let best = -1, bd = 6;
+      for (const r of sim.receivers()) {
+        const dd = Math.hypot(r.x - f.x, r.y - f.y);
+        if (dd < bd) { bd = dd; best = r.i; }
+      }
+      if (best >= 0) sim.throwTo(best, 0.65);
+      this.aimCancel();
+      return;
+    }
+    this.aimMove(cx, cy);
+    if (this.aim.active) {
+      const qb = sim.agents[sim.qb];
+      const air = Math.hypot(this.aim.x - qb.x, this.aim.y - qb.y);
+      const power = clamp(0.3 + (air / sim.maxThrow(qb)) * 0.75, 0.3, 1);
+      sim.throwToPoint(this.aim.x, this.aim.y, power);
+    }
+    this.aimCancel();
+  }
+
+  aimCancel() {
+    this.aimFrom = null;
+    this.aim = { active: false, x: 0, y: 0, target: -1 };
   }
 
   protected context(): 'qb' | 'carrier' | 'receiver' | 'defender' | 'blocker' | 'returner' | 'kicker' | 'none' {
@@ -709,10 +788,10 @@ export class GameController {
       case 'lead': return 'Lead block through the hole and take on the first defender.';
       case 'runner': return u.slot === 'QB' ? 'Designed QB run: follow your blockers.' : 'Take the handoff and hit the hole. Use JUKE/SPIN/STIFF ARM to break tackles.';
       case 'fake': return 'Sell the play-action fake, then help in protection.';
-      case 'qbPass': return `${this.readText} Hold a receiver button to charge a bullet, tap for touch.`;
+      case 'qbPass': return `${this.readText} ${this.settings.passScheme === 'buttons' ? 'Hold a receiver button to charge a bullet, tap for touch.' : 'After the snap, drag toward a receiver and release to throw.'}`;
       case 'qbHand': return t.pa ? `Fake the handoff, then find an open receiver. ${this.readText}` : 'Hand the ball off, then carry out your fake.';
       case 'rush': return 'Rush the passer. Mash SHED when engaged; TACKLE when close.';
-      case 'man': return `Man coverage on #${sim.agents[t.target].p.num}. Stay on his hip; SWAT when the ball arrives.`;
+      case 'man': return `Man coverage on #${sim.agents[t.target].p.num}. Stay on their hip; SWAT when the ball arrives.`;
       case 'zone': return 'Zone coverage: guard your area (yellow ring), then break on the ball.';
       case 'returner': return 'Field the kick and find a lane.';
       case 'kick': return 'Kick!';
@@ -768,7 +847,7 @@ export class GameController {
         reads = sim.receivers().map((r, i) => ({ idx: r.i, label: String(i + 1), open: 2 }));
       }
       const showLanding = !!sim.user && (sim.ball.target === sim.user.i || sim.user.side === 'def' || sim.user.task.k === 'returner');
-      this.scene.update(sim, dt, { userQbReads: reads, showLanding });
+      this.scene.update(sim, dt, { userQbReads: reads, showLanding, aim: this.aimFrom ? this.aim : null });
       this.scene.render();
     }
     this.hudT += dt;
@@ -784,7 +863,7 @@ export class GameController {
         case 'tackle': case 'sack': audio.hit(e.big || e.type === 'sack'); this.scene?.addShake(e.user ? 0.35 : 0.12); break;
         case 'catch': audio.catch(); break;
         case 'kick': audio.kick(); break;
-        case 'td': audio.cheer(1.3); break;
+        case 'td': audio.cheer(1.3); this.scene?.celebrate(); break;
         case 'int': case 'fumble': audio.cheer(0.8); this.scene?.addShake(0.2); break;
         case 'juke': case 'spin': case 'miss': if (e.user) audio.cheer(0.4); break;
         case 'whistle': audio.whistle(); break;

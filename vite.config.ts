@@ -11,7 +11,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: { three: ['three'], react: ['react', 'react-dom'] },
+        manualChunks: { react: ['react', 'react-dom'] },
       },
     },
   },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HudState } from '../../game/GameController';
 import type { KickParams } from '../../game/engine/PlaySim';
 import { input, type ActionName } from '../../game/input/Input';
@@ -30,6 +30,37 @@ export interface Playable {
   isDrill?: boolean;
   userPos: Pos;
   userSlotHint?: string;
+  aimBegin(cx: number, cy: number): boolean;
+  aimMove(cx: number, cy: number): void;
+  aimEnd(cx: number, cy: number): void;
+  aimCancel(): void;
+}
+
+const finePointer = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: fine)').matches;
+
+/** Drag-to-aim passing surface: drag from anywhere toward the target, release to throw. Tap a receiver for a quick pass. */
+function AimZone({ ctl, lefty }: { ctl: Playable; lefty: boolean }) {
+  const pid = useRef<number | null>(null);
+  const style: React.CSSProperties = finePointer
+    ? { position: 'absolute', inset: 0, touchAction: 'none' }
+    : { position: 'absolute', top: '12%', bottom: 0, [lefty ? 'left' : 'right']: 0, width: '54%', touchAction: 'none' };
+  return (
+    <div
+      className="aimzone"
+      style={style}
+      onPointerDown={(e) => {
+        if (pid.current !== null) return;
+        if (!ctl.aimBegin(e.clientX, e.clientY)) return;
+        pid.current = e.pointerId;
+        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+        e.preventDefault();
+      }}
+      onPointerMove={(e) => { if (pid.current === e.pointerId) ctl.aimMove(e.clientX, e.clientY); }}
+      onPointerUp={(e) => { if (pid.current !== e.pointerId) return; pid.current = null; ctl.aimEnd(e.clientX, e.clientY); }}
+      onPointerCancel={() => { pid.current = null; ctl.aimCancel(); }}
+      onContextMenu={(e) => e.preventDefault()}
+    />
+  );
 }
 
 export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Settings; onQuit: () => void }) {
@@ -41,6 +72,7 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
   useEffect(() => input.onAction((a) => { if (a === 'pause') setPaused((p) => !p); }), []);
   const scale = settings.controlScale;
   const lefty = settings.leftHanded;
+  const drag = settings.passScheme !== 'buttons';
   const press = (id: ActionName | 'snap') => {
     if (id === 'snap') ctl.snap();
     else input.emit(id);
@@ -163,14 +195,16 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
       {/* Live / pre-snap controls */}
       {(hud.mode === 'live' || hud.mode === 'presnap') && (
         <>
-          {hud.mode === 'live' && hud.userOnField && <Joystick lefty={lefty} scale={scale} />}
+          {hud.mode === 'live' && drag && hud.receivers.length > 0 && <AimZone ctl={ctl} lefty={lefty} />}
+          {hud.mode === 'live' && hud.userOnField && !(finePointer && drag && hud.receivers.length > 0) && <Joystick lefty={lefty} scale={scale} />}
+          {hud.mode === 'live' && drag && hud.canThrow && <div className="aimhint">Drag toward a receiver &amp; release to throw · Tap a receiver for a quick pass</div>}
           {hud.mode === 'presnap' && (
             <div className="assign"><b>{hud.playName || 'Ready'}{hud.playClock > 0 ? ` • Play clock ${hud.playClock}` : ''}</b>{hud.assignment}</div>
           )}
           {hud.mode === 'presnap' && hud.canAudible && (
             <div className="hudtop right" style={{ top: 'calc(56px + var(--safe-t))' }}><button className="btn sm" onClick={() => ctl.audible()}>Audible</button></div>
           )}
-          {hud.receivers.length > 0 && hud.mode === 'live' ? (
+          {hud.receivers.length > 0 && hud.mode === 'live' && !drag ? (
             <div className="recv" style={lefty ? { right: 'auto', left: 14, alignItems: 'flex-start' } : undefined}>
               {hud.charge > 0 && <div className="charge"><i style={{ width: `${hud.charge * 100}%` }} /></div>}
               <div className="rlist">

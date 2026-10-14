@@ -195,6 +195,11 @@ export const defaultSettings = (): Settings => ({
   keys: { ...DEFAULT_KEYS },
   autoContinue: true,
   playSpeed: 1,
+  passScheme: 'drag',
+  aimSensitivity: 1,
+  stickSensitivity: 1,
+  music: true,
+  tutorialsSeen: [],
 });
 
 export function loadSettings(): Settings {

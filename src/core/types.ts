@@ -316,6 +316,13 @@ export interface Settings {
   keys: Record<string, string>;
   autoContinue: boolean;
   playSpeed: number;
+  /** QB passing: drag-to-aim (default) or receiver buttons. */
+  passScheme: 'drag' | 'buttons';
+  aimSensitivity: number;
+  stickSensitivity: number;
+  music: boolean;
+  /** Positions / topics whose first-time tutorial has been shown. */
+  tutorialsSeen: string[];
 }
 
 export interface SaveFile {

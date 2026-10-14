@@ -2,58 +2,20 @@ import React, { type ReactNode } from 'react';
 import type { Appearance, Player, Pos, Role, StatLine } from '../../core/types';
 import { TEAMS } from '../../data/teams';
 import { FORMATIONS, ROUTES, type OffPlay, type DefPlay, DEF_FORMATIONS } from '../../data/playbook';
-import { emblemPath } from '../../game/render/textures';
-import { SKIN_TONES, HAIR_COLORS } from '../../game/render/playerModel';
+import { logoDataUrl, portraitDataUrl } from '../../game/pixel/sprites';
 import { store } from '../store';
 
 export function TeamLogo({ id, size = 40 }: { id: number; size?: number }) {
   const t = TEAMS[id];
   if (!t) return <div style={{ width: size, height: size }} />;
-  const glyphSize = t.emblem.glyph.length > 1 ? 36 : 50;
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-label={`${t.city} ${t.name}`} style={{ flexShrink: 0 }}>
-      <path d={emblemPath(t.emblem.shape)} fill={t.primary} stroke={t.secondary} strokeWidth={6} />
-      <text x="50" y={t.emblem.shape === 'star' ? 60 : 58} textAnchor="middle" fontFamily="Barlow Condensed, Arial Black, Impact, sans-serif" fontWeight={800} fontSize={glyphSize} fill={t.accent === t.primary ? '#fff' : t.accent}>{t.emblem.glyph}</text>
-    </svg>
-  );
+  return <img className="pix" src={logoDataUrl(id)} width={size} height={size} alt={`${t.city} ${t.name}`} style={{ flexShrink: 0 }} />;
 }
 
-/** Stylized 2D portrait drawn from the player's appearance (used in menus). */
+/** Pixel portrait drawn from the player's appearance (used in menus). */
 export function Portrait({ app, teamId, num, size = 96, helmet = true }: { app?: Appearance; teamId: number; num?: number; size?: number; helmet?: boolean }) {
-  const t = TEAMS[teamId] ?? TEAMS[0];
-  const skin = SKIN_TONES[app?.skin ?? 3];
-  const hair = HAIR_COLORS[app?.hairColor ?? 0];
   return (
     <div className="portrait" style={{ width: size, height: size }}>
-      <svg viewBox="0 0 100 100" width={size} height={size}>
-        <rect x="18" y="70" width="64" height="40" rx="14" fill={teamId >= 0 ? t.primary : '#2a3550'} />
-        <rect x="10" y="72" width="80" height="12" rx="6" fill={teamId >= 0 ? t.primary : '#2a3550'} stroke={t.secondary} strokeWidth="2" />
-        <text x="50" y="98" textAnchor="middle" fontFamily="Barlow Condensed, Arial Black" fontWeight={800} fontSize="16" fill="#fff">{num ?? ''}</text>
-        <rect x="43" y="58" width="14" height="14" fill={skin} />
-        <ellipse cx="50" cy="44" rx="17" ry="20" fill={skin} />
-        {!helmet && app && app.hair === 1 && <path d="M33 40 Q35 22 50 22 Q65 22 67 40 Q60 30 50 30 Q40 30 33 40Z" fill={hair} />}
-        {!helmet && app && app.hair === 2 && <path d="M34 38 Q36 25 50 25 Q64 25 66 38 Q58 31 50 31 Q42 31 34 38Z" fill={hair} opacity="0.8" />}
-        {!helmet && app && app.hair === 3 && <circle cx="50" cy="30" r="22" fill={hair} />}
-        {!helmet && app && app.hair === 4 && <path d="M32 44 Q32 20 50 20 Q68 20 68 44 L70 66 L64 50 L60 66 L56 48 L50 64 L44 48 L40 66 L36 50 L30 66Z" fill={hair} />}
-        {!helmet && app && app.hair === 5 && <rect x="46" y="16" width="8" height="18" rx="3" fill={hair} />}
-        {!helmet && <ellipse cx="50" cy="44" rx="17" ry="20" fill={skin} opacity={app && app.hair === 3 ? 1 : 0} />}
-        <circle cx="43" cy="44" r="2.2" fill="#111" />
-        <circle cx="57" cy="44" r="2.2" fill="#111" />
-        {app?.accessories.eyeBlack && <><rect x="39" y="48" width="8" height="2.5" fill="#111" /><rect x="53" y="48" width="8" height="2.5" fill="#111" /></>}
-        {app && app.facialHair === 3 && <path d="M34 50 Q50 72 66 50 L66 56 Q50 74 34 56Z" fill={hair} />}
-        {app && app.facialHair === 2 && <rect x="46" y="56" width="8" height="8" rx="3" fill={hair} />}
-        {app && app.facialHair === 4 && <rect x="43" y="52" width="14" height="2.5" rx="1" fill={hair} />}
-        {app && app.facialHair === 1 && <path d="M36 52 Q50 68 64 52 Q50 64 36 52Z" fill={hair} opacity="0.4" />}
-        <path d="M44 56 Q50 59 56 56" stroke="#5a2a1a" strokeWidth="1.5" fill="none" />
-        {helmet && (
-          <g>
-            <path d="M28 46 Q28 18 50 18 Q73 18 74 44 L74 54 L66 54 L64 44 Q50 38 36 44 L34 56 L28 56Z" fill={TEAMS[teamId] ? (t.primary === '#FFFFFF' ? t.secondary : t.primary) : '#3a4560'} />
-            <rect x="48" y="18" width="4" height="22" fill={t.secondary} />
-            <path d="M34 50 L66 50 M36 56 L64 56 M40 62 L60 62 M50 48 L50 64" stroke="#ddd" strokeWidth="2.2" fill="none" />
-            {app && app.visor > 0 && <rect x="36" y="39" width="28" height="8" rx="3" fill={['', '#cfe8ff', '#1b1f24', '#d9a521', '#2f6fd6'][app.visor]} opacity={app.visor === 1 ? 0.4 : 0.9} />}
-          </g>
-        )}
-      </svg>
+      <img className="pix" src={portraitDataUrl(app, teamId, num, helmet)} width={size} height={size} alt="" />
     </div>
   );
 }

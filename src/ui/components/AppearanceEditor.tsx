@@ -1,7 +1,7 @@
 import type { Appearance } from '../../core/types';
 import {
   BODY_TYPES, CLEAT_COLORS, FACE_PRESETS, FACIAL_HAIR, GLOVE_COLORS, HAIR_COLORS, HAIR_STYLES, HELMET_STYLES, SKIN_TONES, SLEEVES, VISORS,
-} from '../../game/render/playerModel';
+} from '../../game/pixel/sprites';
 import { Picker } from './common';
 
 const cyc = (v: number, n: number, d: number) => (v + d + n) % n;
