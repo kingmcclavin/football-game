@@ -105,3 +105,49 @@ describe('play flipping', () => {
     expect(ha).toBeCloseTo(-hb, 5);
   });
 });
+
+describe('PlaySim drag-to-aim passing', () => {
+  it('completes passes thrown at a spot in front of the most open receiver', async () => {
+    const { buildMods } = await import('../src/game/engine/mods');
+    const qbId = off.depth.QB[0];
+    const qbP = league.players[qbId];
+    const user = { pid: qbP.id, mods: buildMods([]) };
+    const passPlays = OFF_PLAYS.filter((p) => p.type === 'pass' && !p.tags.includes('special') && p.formation !== 'goalline');
+    const defs = DEF_PLAYS.filter((d) => d.formation !== 'goalline');
+    let att = 0, cmp = 0, ints = 0;
+    for (let i = 0; i < 80; i++) {
+      const offPlay = passPlays[i % passPlays.length];
+      const defPlay = defs[i % defs.length];
+      const sim = new PlaySim({
+        kind: 'scrimmage', los: 30, hashY: 26.67, toGo: 10, down: 1,
+        off: offenseLineup(league, off, offPlay, user), def: defenseLineup(league, def, defPlay),
+        offPlay, defPlay, userSide: 'off', oppDiff: DIFFICULTY.pro, seed: 9000 + i,
+      });
+      sim.snap();
+      let thrown = false;
+      for (let s = 0; s < 60 * 12 && sim.phase !== 'done'; s++) {
+        sim.setInput({ mx: 0, my: 0, sprint: false });
+        if (!thrown && sim.t > 1.6 && sim.canThrow()) {
+          const qb = sim.agents[sim.qb];
+          const best = sim.receivers().map((r) => ({ r, o: sim.openness(qb, r) })).sort((a, b) => b.o - a.o)[0];
+          if (best) {
+            const T = Math.hypot(best.r.x - qb.x, best.r.y - qb.y) / 22;
+            const p = sim.predict(best.r, T);
+            const air = Math.hypot(p.x - qb.x, p.y - qb.y);
+            thrown = sim.throwToPoint(p.x, p.y, Math.min(1, 0.3 + (air / sim.maxThrow(qb)) * 0.75));
+          }
+        }
+        sim.step(1 / 60);
+      }
+      const o = sim.outcome;
+      if (!o || !thrown || o.kind === 'sack') continue;
+      att++;
+      if (o.kind === 'pass') cmp++;
+      if (o.kind === 'interception') ints++;
+    }
+    console.log('drag-aim', { att, cmp, ints });
+    expect(att).toBeGreaterThan(40);
+    expect(cmp / att).toBeGreaterThan(0.4);
+    expect(ints / att).toBeLessThan(0.2);
+  });
+});

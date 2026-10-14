@@ -74,11 +74,16 @@ export function App() {
   useEffect(() => {
     const unlock = () => audio.unlock();
     window.addEventListener('pointerdown', unlock, { once: true });
-    audio.setVolume(s.settings.volume, s.settings.sound);
+    audio.setVolume(s.settings.volume, s.settings.sound, s.settings.music);
     store.applyTheme();
     return () => window.removeEventListener('pointerdown', unlock);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    // Chiptune in menus; the stadium crowd takes over during games and drills.
+    const inGame = s.screen === 'game' || s.screen === 'combine' || (s.screen === 'training' && !!s.params.drill);
+    audio.music(inGame ? null : s.screen === 'menu' || s.screen === 'create' ? 'menu' : 'hub');
+  }, [s.screen, s.params.drill]);
   const needsCareer = !['menu', 'create', 'help'].includes(s.screen);
   if (needsCareer && (!s.career || !s.league)) return <MainMenu />;
   let body: ReactNode;

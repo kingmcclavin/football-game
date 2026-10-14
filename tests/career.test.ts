@@ -7,7 +7,7 @@ import { addXp, upgradeAttr, buyAbility, trainableAttrs } from '../src/career/pr
 import { migrate, SAVE_VERSION } from '../src/core/save';
 import { abilitiesFor } from '../src/data/abilities';
 
-function opts(mode: 'rookie' | 'established', pos: 'QB' | 'WR' | 'LB' = 'QB') {
+function opts(mode: 'rookie' | 'established' | 'undrafted', pos: 'QB' | 'WR' | 'LB' = 'QB') {
   return {
     first: 'Test', last: 'Player', pos, archetype: pos === 'QB' ? 'qb_pocket' : pos === 'WR' ? 'wr_deep' : 'lb_run', num: 12, ht: 75, wt: 220,
     appearance: defaultAppearance(), startMode: mode, teamChoice: 'draft' as const, difficulty: 'pro' as const, quarterMinutes: 5, slot: 0, seed: 99,
@@ -25,6 +25,19 @@ function playOutSeason(league: ReturnType<typeof createCareer>['league'], career
 }
 
 describe('career', () => {
+  it('undrafted start: minimum deal, low on the depth chart, no draft slot', () => {
+    const { league, career } = createCareer(opts('undrafted', 'WR'));
+    const p = userPlayer(league, career);
+    expect(career.phase).toBe('season');
+    expect(p.teamId).toBeGreaterThanOrEqual(0);
+    expect(p.draft).toBeUndefined();
+    expect(p.contract.salary).toBeLessThan(1);
+    expect(p.contract.years).toBe(1);
+    expect(['PS', 'BK']).toContain(career.role);
+    playOutSeason(league, career);
+    expect(career.phase).not.toBe('season');
+  });
+
   it('rookie path: combine, draft, preseason and a full season', () => {
     const { league, career } = createCareer(opts('rookie'));
     expect(career.phase).toBe('combine');

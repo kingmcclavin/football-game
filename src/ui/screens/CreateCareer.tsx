@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Appearance, Difficulty, Pos } from '../../core/types';
-import { ARCHETYPES, POS_BODY, POS_LABEL, POS_LIST, PLAYABLE, archetypesFor } from '../../data/positions';
+import { ARCHETYPES, CREATE_LABEL, CREATE_POS, POS_BODY, POS_LABEL, PLAYABLE, archetypesFor } from '../../data/positions';
 import { CONFERENCES, DIVISIONS, TEAMS } from '../../data/teams';
 import { createCareer, defaultAppearance } from '../../career/career';
 import { saveCareer } from '../../core/save';
@@ -29,7 +29,7 @@ export function CreateCareer() {
   const [wt, setWt] = useState(222);
   const [appearance, setAppearance] = useState<Appearance>(defaultAppearance());
   const [helmet, setHelmet] = useState(true);
-  const [mode, setMode] = useState<'rookie' | 'established'>('rookie');
+  const [mode, setMode] = useState<'rookie' | 'established' | 'undrafted'>('rookie');
   const [team, setTeam] = useState<number | 'draft'>('draft');
   const [diff, setDiff] = useState<Difficulty>(app.settings.difficulty);
   const [qmin, setQmin] = useState(app.settings.quarterMinutes);
@@ -70,10 +70,10 @@ export function CreateCareer() {
 
   const posGrid = (
     <div className="grid g4 stack" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
-      {POS_LIST.map((p) => (
+      {CREATE_POS.map((p) => (
         <button key={p} className={`option ${pos === p ? 'on' : ''}`} onClick={() => pickPos(p)}>
-          <div className="row between"><b style={{ fontFamily: 'var(--display)', fontSize: '1.4rem' }}>{p}</b>{['QB', 'RB', 'WR'].includes(p) && <span className="chip gold">Featured</span>}</div>
-          <div className="small muted">{POS_LABEL[p]}</div>
+          <div className="row between"><b style={{ fontFamily: 'var(--display)', fontSize: '0.9rem' }}>{p === 'CB' ? 'DB' : p === 'DE' ? 'DL' : p}</b>{['QB', 'RB', 'WR'].includes(p) && <span className="chip gold">Featured</span>}</div>
+          <div className="small muted">{CREATE_LABEL[p] ?? POS_LABEL[p]}</div>
           <div className="tiny dim" style={{ marginTop: 4 }}>{PLAYABLE[p].note}</div>
         </button>
       ))}
@@ -147,7 +147,7 @@ export function CreateCareer() {
           <div className="grid g2 stack" style={{ alignItems: 'start' }}>
             <div className="col">
               <PlayerPreview app={appearance} teamId={previewTeam} num={num} helmet={helmet} ht={ht} wt={wt} />
-              <div className="row"><button className="btn sm" onClick={() => setHelmet(!helmet)}>{helmet ? 'Remove helmet' : 'Put on helmet'}</button><span className="tiny dim">Drag to rotate</span></div>
+              <div className="row"><button className="btn sm" onClick={() => setHelmet(!helmet)}>{helmet ? 'Remove helmet' : 'Put on helmet'}</button><span className="tiny dim">Tap the preview to turn around</span></div>
             </div>
             <div className="card"><AppearanceEditor app={appearance} onChange={setAppearance} /></div>
           </div>
@@ -172,7 +172,7 @@ export function CreateCareer() {
 
         {step === 3 && (
           <div className="col">
-            <div className="grid g2 stack">
+            <div className="grid g3">
               <button className={`option ${mode === 'rookie' ? 'on' : ''}`} onClick={() => setMode('rookie')}>
                 <h3>Rookie Prospect</h3>
                 <div className="small muted">Start around 60 OVR. Perform at the combine, get drafted, fight for a roster spot from the bottom of the depth chart.</div>
@@ -181,10 +181,14 @@ export function CreateCareer() {
                 <h3>Established Prospect</h3>
                 <div className="small muted">Start around 72 OVR as a high pick on a bigger contract, close to a starting role.</div>
               </button>
+              <button className={`option ${mode === 'undrafted' ? 'on' : ''}`} onClick={() => setMode('undrafted')}>
+                <h3>Undrafted Free Agent</h3>
+                <div className="small muted">Start around 57 OVR on a one-year minimum deal. Begin on the practice squad and earn every snap.</div>
+              </button>
             </div>
             <div className="card">
               <div className="row between wrap"><h3>Team</h3>
-                <button className={`btn sm ${team === 'draft' ? 'primary' : ''}`} onClick={() => setTeam('draft')}>{'🎲'} Enter the draft (random team)</button>
+                <button className={`btn sm ${team === 'draft' ? 'primary' : ''}`} onClick={() => setTeam('draft')}>{'🎲'} {mode === 'undrafted' ? 'Best camp invite (random team)' : 'Enter the draft (random team)'}</button>
               </div>
               {[0, 1].map((c) => (
                 <div key={c} style={{ marginTop: 8 }}>
@@ -219,10 +223,10 @@ export function CreateCareer() {
             <PlayerPreview app={appearance} teamId={previewTeam} num={num} helmet ht={ht} wt={wt} />
             <div className="card col">
               <h2>{first || 'Rookie'} {last || 'Player'}</h2>
-              <div className="row wrap"><span className="chip team">#{num}</span><span className="chip">{POS_LABEL[pos]}</span><span className="chip">{archetype.name}</span><span className="chip">{heightStr(ht)}, {wt} lbs</span></div>
+              <div className="row wrap"><span className="chip team">#{num}</span><span className="chip">{CREATE_LABEL[pos] ?? POS_LABEL[pos]}</span><span className="chip">{archetype.name}</span><span className="chip">{heightStr(ht)}, {wt} lbs</span></div>
               <div className="divider" />
-              <div>Start: <b>{mode === 'rookie' ? 'Rookie Prospect (combine + draft)' : 'Established Prospect'}</b></div>
-              <div>Team: <b>{team === 'draft' ? 'Decided by the draft' : `${TEAMS[team].city} ${TEAMS[team].name}`}</b></div>
+              <div>Start: <b>{mode === 'rookie' ? 'Rookie Prospect (combine + draft)' : mode === 'undrafted' ? 'Undrafted Free Agent' : 'Established Prospect'}</b></div>
+              <div>Team: <b>{team === 'draft' ? (mode === 'undrafted' ? 'Best camp invite' : 'Decided by the draft') : `${TEAMS[team].city} ${TEAMS[team].name}`}</b></div>
               <div>Difficulty: <b>{DIFF_LABEL[diff]}</b> • Quarters: <b>{qmin} min</b></div>
               <button className="btn primary big block" disabled={busy} onClick={() => start(false)}>{busy ? 'Building league…' : 'Begin Career'}</button>
             </div>

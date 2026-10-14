@@ -9,6 +9,7 @@ import { KickMeter } from './KickMeter';
 import { PlayDiagram, TeamLogo, statSummary } from './common';
 import type { Pos, Settings } from '../../core/types';
 import { store } from '../store';
+import { Tutorial, tutorialKey } from './Tutorial';
 
 export interface Playable {
   hud: HudState;
@@ -66,7 +67,9 @@ function AimZone({ ctl, lefty }: { ctl: Playable; lefty: boolean }) {
 export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Settings; onQuit: () => void }) {
   const [hud, setHud] = useState<HudState>(ctl.hud);
   const [paused, setPaused] = useState(false);
-  const [showGuide, setShowGuide] = useState(() => settings.showGuide && hud0(ctl) === 'pregame');
+  const [showGuide, setShowGuide] = useState(false);
+  const tkey = tutorialKey(ctl.userPos);
+  const [tutorial, setTutorial] = useState(() => !ctl.isDrill && hud0(ctl) === 'pregame' && !(settings.tutorialsSeen ?? []).includes(tkey));
   const [filter, setFilter] = useState<string>('all');
   useEffect(() => ctl.subscribe(setHud), [ctl]);
   useEffect(() => input.onAction((a) => { if (a === 'pause') setPaused((p) => !p); }), []);
@@ -238,11 +241,13 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
             <button className="btn block" onClick={() => ctl.cycleCamera()}>Camera: {hud.camMode}</button>
             {!ctl.isDrill && <button className="btn block" onClick={() => { ctl.callTimeout(); setPaused(false); }}>Call Timeout</button>}
             <button className="btn block" onClick={() => setShowGuide(true)}>Controls Guide</button>
+            <button className="btn block" onClick={() => { setPaused(false); setTutorial(true); }}>Replay Tutorial</button>
             {!ctl.isDrill && <button className="btn block" onClick={() => { setPaused(false); ctl.simToEnd(); }}>Simulate Rest of Game</button>}
             <button className="btn danger block" onClick={onQuit}>{ctl.isDrill ? 'Quit Drill' : 'Quit (game will be simulated)'}</button>
           </div>
         </div>
       )}
+      {tutorial && <Tutorial which={tkey} onClose={() => { setTutorial(false); const seen = store.state.settings.tutorialsSeen ?? []; if (!seen.includes(tkey)) store.setSettings({ tutorialsSeen: [...seen, tkey] }); }} />}
       {showGuide && <ControlsGuide onClose={() => { setShowGuide(false); if (settings.showGuide) store.setSettings({ showGuide: false }); }} settings={settings} />}
     </div>
   );
@@ -262,7 +267,8 @@ export function ControlsGuide({ onClose, settings }: { onClose: () => void; sett
             <h4>Touch</h4>
             <ul className="small" style={{ paddingLeft: 18, lineHeight: 1.6 }}>
               <li>Touch & drag anywhere on the left side to move. Push fully to sprint.</li>
-              <li>QB: hold a receiver button to charge a bullet pass, tap for a touch pass. Push the stick while releasing to lead the receiver.</li>
+              <li>QB (drag scheme): drag on the right side toward a spot and release to throw; drag farther for more power. Tap a receiver for a quick pass.</li>
+              <li>QB (button scheme, Settings): hold a receiver button to charge a bullet, tap for touch.</li>
               <li>Receiver colors show separation: green open, yellow tight, red covered.</li>
               <li>Ball carrier: Juke, Spin, Stiff Arm, Dive, Protect.</li>
               <li>Receiver: press Catch as the ball arrives (aggressive catch).</li>
@@ -275,6 +281,7 @@ export function ControlsGuide({ onClose, settings }: { onClose: () => void; sett
             <ul className="small" style={{ paddingLeft: 18, lineHeight: 1.6 }}>
               <li><span className="kbd">{k(km.up)}{k(km.left)}{k(km.down)}{k(km.right)}</span> / arrows: move, <span className="kbd">{k(km.sprint)}</span> sprint</li>
               <li><span className="kbd">{k(km.snap)}</span> snap / continue / lock kick meter</li>
+              <li>Mouse: click-drag toward a spot and release to throw (QB)</li>
               <li><span className="kbd">1</span>–<span className="kbd">5</span> hold & release to throw to a receiver</li>
               <li><span className="kbd">{k(km.juke)}</span> juke <span className="kbd">{k(km.spin)}</span> spin <span className="kbd">{k(km.stiff)}</span> stiff arm <span className="kbd">{k(km.dive)}</span> dive <span className="kbd">{k(km.protect)}</span> protect</li>
               <li><span className="kbd">{k(km.action)}</span> context action (catch / tackle / shed / punch)</li>

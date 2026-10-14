@@ -49,19 +49,26 @@ export function SettingsScreen() {
         </Section>
         <Section title="Display & Sound">
           <div className="col">
-            <span className="small muted">Graphics quality</span>
-            <div className="seg">{(['low', 'medium', 'high'] as const).map((q) => <button key={q} className={settings.graphics === q ? 'on' : ''} onClick={() => set({ graphics: q })}>{q}</button>)}</div>
-            <span className="small muted">Default camera</span>
-            <div className="seg">{(['broadcast', 'chase', 'wide'] as const).map((q) => <button key={q} className={settings.camera === q ? 'on' : ''} onClick={() => set({ camera: q })}>{q}</button>)}</div>
+            <span className="small muted">Default camera zoom</span>
+            <div className="seg">{(['broadcast', 'chase', 'wide'] as const).map((q) => <button key={q} className={settings.camera === q ? 'on' : ''} onClick={() => set({ camera: q })}>{({ broadcast: 'Normal', chase: 'Close', wide: 'Wide' } as const)[q]}</button>)}</div>
             <label className="row small"><input type="checkbox" checked={settings.sound} onChange={(e) => set({ sound: e.target.checked })} /> Sound effects</label>
+            <label className="row small"><input type="checkbox" checked={settings.music} onChange={(e) => set({ music: e.target.checked })} /> Chiptune music</label>
             <label className="field">Volume<input type="range" min={0} max={1} step={0.05} value={settings.volume} onChange={(e) => set({ volume: Number(e.target.value) })} /></label>
           </div>
         </Section>
         <Section title="Touch Controls">
           <div className="col">
+            <span className="small muted">QB passing scheme</span>
+            <div className="seg">
+              <button className={settings.passScheme !== 'buttons' ? 'on' : ''} onClick={() => set({ passScheme: 'drag' })}>Drag to aim</button>
+              <button className={settings.passScheme === 'buttons' ? 'on' : ''} onClick={() => set({ passScheme: 'buttons' })}>Receiver buttons</button>
+            </div>
+            <label className="field">Aim sensitivity: {Math.round((settings.aimSensitivity ?? 1) * 100)}%<input type="range" min={0.5} max={2} step={0.05} value={settings.aimSensitivity ?? 1} onChange={(e) => set({ aimSensitivity: Number(e.target.value) })} /></label>
+            <label className="field">Movement sensitivity: {Math.round((settings.stickSensitivity ?? 1) * 100)}%<input type="range" min={0.6} max={1.8} step={0.05} value={settings.stickSensitivity ?? 1} onChange={(e) => set({ stickSensitivity: Number(e.target.value) })} /></label>
             <label className="field">Control size: {Math.round(settings.controlScale * 100)}%<input type="range" min={0.75} max={1.35} step={0.05} value={settings.controlScale} onChange={(e) => set({ controlScale: Number(e.target.value) })} /></label>
             <label className="row small"><input type="checkbox" checked={settings.leftHanded} onChange={(e) => set({ leftHanded: e.target.checked })} /> Left-handed layout (buttons on the left)</label>
             <label className="row small"><input type="checkbox" checked={input.autoSprint} onChange={(e) => { input.autoSprint = e.target.checked; store.touch(); }} /> Auto-sprint at full stick</label>
+            <button className="btn sm" onClick={() => { set({ tutorialsSeen: [] }); store.toast('Tutorials will show again at your next game.'); }}>Replay tutorials</button>
           </div>
         </Section>
         <Section title="Keyboard" right={<button className="btn sm" onClick={() => set({ keys: { ...DEFAULT_KEYS } })}>Reset</button>}>

@@ -101,6 +101,8 @@ export interface Game {
   preseason?: boolean;
   userGame?: boolean;
   topPerformers?: string[];
+  /** Championship game MVP (player id), set when the final is played. */
+  mvp?: string;
 }
 
 export interface NewsItem {
@@ -242,7 +244,7 @@ export interface Career {
   playerId: string;
   slot: number;
   created: number;
-  startMode: 'rookie' | 'established';
+  startMode: 'rookie' | 'established' | 'undrafted';
   difficulty: Difficulty;
   quarterMinutes: number;
   level: number;

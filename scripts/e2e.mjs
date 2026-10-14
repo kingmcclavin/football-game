@@ -10,7 +10,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.addInitScript(() => localStorage.setItem('gl-settings', JSON.stringify({ quarterMinutes: 2, autoContinue: true, sound: false, showGuide: false })));
+await page.addInitScript(() => localStorage.setItem('gl-settings', JSON.stringify({ quarterMinutes: 2, autoContinue: true, sound: false, music: false, showGuide: false, tutorialsSeen: ['QB', 'RB', 'REC', 'DEF', 'K'] })));
 await page.goto(URL);
 await page.getByText('New Career').click();
 await page.getByText('Quick Start').click();
@@ -39,7 +39,48 @@ while (Date.now() - t0 < 240000) {
 }
 const finished = await page.locator('.chip', { hasText: /VICTORY|DEFEAT|TIE/ }).count();
 console.log(`snaps: ${snaps}, finished: ${finished > 0}, errors: ${errors.length}`);
+
+// Second pass: a quarterback career shows the first-time tutorial and throws with drag-to-aim.
+const ctx2 = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+const qb = await ctx2.newPage();
+qb.on('pageerror', (e) => errors.push(e.message));
+qb.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+await qb.addInitScript(() => localStorage.setItem('gl-settings', JSON.stringify({ quarterMinutes: 2, autoContinue: true, sound: false, music: false, tutorialsSeen: [] })));
+await qb.goto(URL);
+await qb.getByText('New Career').click();
+await qb.getByText('Quick Start').click();
+await qb.locator('button.option').filter({ has: qb.locator('b', { hasText: /^QB$/ }) }).first().click();
+await qb.getByText('Start Career').click();
+await qb.getByText('Play Game').click();
+const sawTutorial = await qb.locator('.tutorial').isVisible();
+await qb.locator('.tutorial button:has-text("Skip")').click();
+await qb.getByText('Kick Off').click();
+let throws = 0;
+const t1 = Date.now();
+while (Date.now() - t1 < 120000 && throws < 3) {
+  const click = async (sel) => {
+    const l = qb.locator(sel).first();
+    if ((await l.count()) && (await l.isVisible().catch(() => false))) { await l.click().catch(() => {}); return true; }
+    return false;
+  };
+  if (await click('button:has-text("Back on the Field")')) continue;
+  if (await click('button:has-text("Start Second Half")')) continue;
+  if (await click("button:has-text(\"Coach's Call\")")) continue;
+  if (await click('.box button:has-text("Continue")')) break;
+  if (await qb.locator('.abtn:has-text("SNAP"), .abtn:has-text("READY")').count()) await qb.keyboard.press('Space');
+  if (await qb.locator('.aimhint').count()) {
+    await qb.waitForTimeout(900);
+    if (await qb.locator('.aimhint').count()) {
+      await qb.mouse.move(560, 200); await qb.mouse.down(); await qb.mouse.move(700, 160, { steps: 6 }); await qb.mouse.up();
+      throws++;
+    }
+  }
+  await qb.waitForTimeout(300);
+}
+console.log(`QB tutorial shown: ${sawTutorial}, drag throws: ${throws}`);
 await browser.close();
+if (!sawTutorial) { console.error('Tutorial did not appear'); process.exit(1); }
+if (!throws) { console.error('No drag-to-aim throw happened'); process.exit(1); }
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
 if (!finished) { console.error('Game did not finish in time'); process.exit(1); }
 console.log('E2E OK');

@@ -62,6 +62,10 @@ describe('multi-season league', () => {
       expect(playoffGames.length).toBe(13);
       const awards = closeSeason(league);
       expect(awards.find((a) => a.key === 'MVP')).toBeTruthy();
+      // Championship MVP comes from the winning team
+      const h = league.history[league.history.length - 1];
+      expect(h.awards.FINAL_MVP).toBeTruthy();
+      expect(league.players[h.awards.FINAL_MVP!].teamId).toBe(champ);
       runOffseason(league, rng);
       startNewSeason(league, rng);
       for (const t of league.teams) {

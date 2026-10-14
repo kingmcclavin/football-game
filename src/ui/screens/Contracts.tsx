@@ -37,7 +37,7 @@ export function Contracts() {
           <div className="small muted" style={{ marginTop: 8 }}>Contract decisions happen in the offseason: extensions for strong performers with two or fewer years left, and free agency when your deal expires.</div>
         </Section>
         <Section title="Contract History">
-          {career.decisions.filter((d) => d.title === 'Contract').length === 0 && <div className="muted small">Original contract{p.draft ? ` (drafted ${p.draft.season}, round ${p.draft.round})` : ''}.</div>}
+          {career.decisions.filter((d) => d.title === 'Contract').length === 0 && <div className="muted small">Original contract{p.draft ? ` (drafted ${p.draft.season}, round ${p.draft.round})` : career.startMode === 'undrafted' ? ' (undrafted free agent)' : ''}.</div>}
           {career.decisions.filter((d) => d.title === 'Contract').map((d, i) => <div key={i} className="news small">{d.season}: {d.choice}</div>)}
           <div className="divider" />
           <h4>Salary by season</h4>

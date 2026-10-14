@@ -72,7 +72,7 @@ class Store {
   setSettings(s: Partial<Settings>) {
     const settings = { ...this.state.settings, ...s };
     saveSettings(settings);
-    audio.setVolume(settings.volume, settings.sound);
+    audio.setVolume(settings.volume, settings.sound, settings.music);
     this.set({ settings });
   }
   toast(msg: string) {

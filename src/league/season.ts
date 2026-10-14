@@ -131,6 +131,17 @@ export function finalizeGame(league: League, game: Game, g: GameState, playoff: 
     .slice(0, 2)
     .map((x) => x.pid);
   game.topPerformers = top;
+  if (playoff && game.round === 4) {
+    // Championship MVP: best performer on the winning side.
+    const winner = game.hs > game.as ? game.home : game.away;
+    const score = (l: Partial<Record<string, number>>) => (l.passYds ?? 0) / 20 + (l.passTD ?? 0) * 5 - (l.passInt ?? 0) * 4 + (l.rushYds ?? 0) / 9 + (l.recYds ?? 0) / 9 + ((l.rushTD ?? 0) + (l.recTD ?? 0)) * 6
+      + (l.tackles ?? 0) * 0.8 + (l.sacks ?? 0) * 5 + (l.ints ?? 0) * 7 + (l.ff ?? 0) * 4 + (l.defTD ?? 0) * 7 + (l.fgM ?? 0) * 2.5;
+    const best = Object.entries(g.box)
+      .filter(([pid]) => league.players[pid]?.teamId === winner)
+      .map(([pid, l]) => ({ pid, v: score(l as Partial<Record<string, number>>) }))
+      .sort((a, b) => b.v - a.v)[0];
+    if (best) game.mvp = best.pid;
+  }
 }
 
 /** Simulate every unplayed game in a week except `skipId`. */
@@ -292,6 +303,12 @@ export function closeSeason(league: League): AwardResult[] {
     const p = league.players[a.pid];
     p.awards.push({ key: a.key, season: league.season });
     if (a.key !== 'ALLSTAR') { awardIds[a.key] = a.pid; awardNames[a.key] = `${fullName(p)} (${TEAMS[p.teamId]?.abbr ?? 'FA'})`; }
+  }
+  if (final?.mvp && league.players[final.mvp]) {
+    const p = league.players[final.mvp];
+    p.awards.push({ key: 'FINAL_MVP', season: league.season });
+    awardIds.FINAL_MVP = p.id;
+    awardNames.FINAL_MVP = `${fullName(p)} (${TEAMS[p.teamId]?.abbr ?? 'FA'})`;
   }
   if (champ !== undefined) {
     league.teams[champ].championships++;

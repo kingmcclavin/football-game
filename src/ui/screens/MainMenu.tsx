@@ -66,7 +66,7 @@ export function MainMenu() {
     <div className="menu">
       <div style={{ width: 'min(520px, 100%)' }} className="col fadein">
         <div>
-          <div className="logo">Gridiron<span>Legacy</span></div>
+          <div className="logo">Retro<span>Gridiron</span></div>
           <div className="stripes" />
           <div className="muted">Create a player. Earn the job. Build a Hall of Fame career in the {LEAGUE_NAME}.</div>
         </div>

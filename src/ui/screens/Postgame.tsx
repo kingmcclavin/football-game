@@ -3,6 +3,7 @@ import { store, useApp } from '../store';
 import { TeamLogo, statSummary, statColumns, statVal, Section } from '../components/common';
 import { TEAMS } from '../../data/teams';
 import { userPlayer } from '../../career/career';
+import { Trophy } from '../components/Trophy';
 import { weekLabel } from '../../league/schedule';
 
 export function Postgame() {
@@ -21,6 +22,9 @@ export function Postgame() {
   // box score: top performers of both teams from season stats are not stored per game; show the user's line + team result
   return (
     <div className="col" style={{ gap: 14 }}>
+      {game?.round === 4 && won && (
+        <div className="card center"><Trophy teamId={p.teamId} mvp={game.mvp ? `${league.players[game.mvp]?.first} ${league.players[game.mvp]?.last}${game.mvp === p.id ? ' (You!)' : ''}` : undefined} size={3} /></div>
+      )}
       <div className="hero">
         <div className="row between wrap" style={{ position: 'relative', zIndex: 1 }}>
           <div>
@@ -36,9 +40,9 @@ export function Postgame() {
         </div>
       </div>
       <div className="grid g3">
-        <div className="card center"><div className="stat"><span className="v" style={{ fontSize: '2.6rem' }}>{recap.grade || '—'}</span><span className="l">Game grade</span></div></div>
-        <div className="card center"><div className="stat"><span className="v" style={{ fontSize: '2.6rem' }}>+{recap.xp}</span><span className="l">XP earned</span></div></div>
-        <div className="card center"><div className="stat"><span className={`v ${recap.trustDelta >= 0 ? 'good' : 'bad'}`} style={{ fontSize: '2.6rem' }}>{recap.trustDelta >= 0 ? '+' : ''}{recap.trustDelta}</span><span className="l">Coach trust</span></div></div>
+        <div className="card center"><div className="stat"><span className="v" style={{ fontSize: '1.3rem' }}>{recap.grade || '—'}</span><span className="l">Game grade</span></div></div>
+        <div className="card center"><div className="stat"><span className="v" style={{ fontSize: '1.3rem' }}>+{recap.xp}</span><span className="l">XP earned</span></div></div>
+        <div className="card center"><div className="stat"><span className={`v ${recap.trustDelta >= 0 ? 'good' : 'bad'}`} style={{ fontSize: '1.3rem' }}>{recap.trustDelta >= 0 ? '+' : ''}{recap.trustDelta}</span><span className="l">Coach trust</span></div></div>
       </div>
       <Section title="Your Stat Line">
         <div className="muted" style={{ marginBottom: 8 }}>{statSummary(p.pos, recap.line)}</div>

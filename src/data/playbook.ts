@@ -303,3 +303,14 @@ export const OFF_SLOT_DEPTH: Record<OffSlot, number> = {
 export const DEF_SLOT_DEPTH: Record<DefSlot, number> = {
   LE: 0, RE: 1, LDT: 0, RDT: 1, NT: 2, WLB: 0, MLB: 1, SLB: 2, LB4: 3, CB1: 0, CB2: 1, NCB: 2, DCB: 3, FS: 0, SS: 1,
 };
+
+/**
+ * Career level at which the user may call each offensive play themselves.
+ * Plays not listed are available from level 1. The AI and the coach's suggested
+ * call are never restricted.
+ */
+export const PLAY_UNLOCK: Record<string, number> = {
+  gun_qbdraw: 3, gun_verts: 3, sb_pacross: 4, sb_corner: 5, i_boot: 5, gun_smash: 6,
+  p_counter: 7, gun_post: 8, p_seams: 9, e_stick: 10, e_verts: 12, gl_paflat: 6,
+};
+export const playUnlockLevel = (id: string) => PLAY_UNLOCK[id] ?? 1;

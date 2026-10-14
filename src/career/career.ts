@@ -39,7 +39,7 @@ export interface CreateOptions {
   ht: number;
   wt: number;
   appearance: Appearance;
-  startMode: 'rookie' | 'established';
+  startMode: 'rookie' | 'established' | 'undrafted';
   teamChoice: number | 'draft';
   difficulty: Difficulty;
   quarterMinutes: number;
@@ -81,7 +81,7 @@ export function createCareer(o: CreateOptions): { league: League; career: Career
   const seed = o.seed ?? Math.floor(Math.random() * 1e9);
   const league = generateLeague(seed);
   const rng = new Rng(seed ^ 0x5bd1e995);
-  const target = o.startMode === 'rookie' ? 61 : 73;
+  const target = o.startMode === 'rookie' ? 61 : o.startMode === 'undrafted' ? 57 : 73;
   const attrs = buildAttrs(rng, o.pos, target, o.archetype);
   const body = POS_BODY[o.pos];
   const p: Player = {
@@ -89,7 +89,7 @@ export function createCareer(o: CreateOptions): { league: League; career: Career
     first: o.first.trim() || 'Rookie',
     last: o.last.trim() || 'Player',
     pos: o.pos,
-    age: o.startMode === 'rookie' ? 21 : 23,
+    age: o.startMode === 'established' ? 23 : 22,
     num: o.num,
     ht: clamp(o.ht, body.ht[0] - 3, body.ht[1] + 3),
     wt: clamp(o.wt, body.wt[0] - 20, body.wt[1] + 20),
@@ -124,12 +124,12 @@ export function createCareer(o: CreateOptions): { league: League; career: Career
     quarterMinutes: o.quarterMinutes,
     level: 1,
     xp: 0,
-    sp: o.startMode === 'rookie' ? 3 : 6,
+    sp: o.startMode === 'established' ? 6 : o.startMode === 'rookie' ? 3 : 2,
     abilities: [],
     equipped: [],
-    trust: o.startMode === 'rookie' ? 40 : 55,
+    trust: o.startMode === 'established' ? 55 : o.startMode === 'rookie' ? 40 : 32,
     role: 'BK',
-    reputation: o.startMode === 'rookie' ? 15 : 35,
+    reputation: o.startMode === 'established' ? 35 : o.startMode === 'rookie' ? 15 : 5,
     phase: o.startMode === 'rookie' ? 'combine' : 'season',
     objectives: [],
     seasonGoals: [],
@@ -147,6 +147,14 @@ export function createCareer(o: CreateOptions): { league: League; career: Career
     wantsTeamId: o.teamChoice === 'draft' ? undefined : o.teamChoice,
     eventsSeen: [],
   };
+  if (o.startMode === 'undrafted') {
+    // Went undrafted: sign a minimum one-year deal and fight from the practice squad.
+    const teamId = o.teamChoice === 'draft' ? pickDraftTeam(league, rng, p) : o.teamChoice;
+    p.contract = { years: 1, salary: 0.75, bonus: 0, signed: league.season };
+    joinTeam(league, p, teamId);
+    beginSeason(league, career);
+    addNews(league, { title: `Undrafted ${p.pos} ${p.first} ${p.last} signs with ${teamName(teamId)}`, body: 'Nobody called their name on draft weekend. Now the rookie gets a camp invite and a minimum deal to prove everybody wrong.', kind: 'contract' });
+  }
   if (o.startMode === 'established') {
     const teamId = o.teamChoice === 'draft' ? pickDraftTeam(league, rng, p) : o.teamChoice;
     const salary = Math.max(1.2, marketValue(p.pos, p.ovr, p.age) * 1.1);

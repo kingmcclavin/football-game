@@ -31,6 +31,9 @@ export const POS_ATTRS: Record<Pos, Partial<Record<Attr, number>>> = {
   P: { kpw: 3, kac: 3, awr: 0.5 },
 };
 
+/** Positions offered when creating a career (the engine supports every position). */
+export const CREATE_POS: Pos[] = ['QB', 'RB', 'WR', 'TE', 'LB', 'CB', 'DE', 'K'];
+export const CREATE_LABEL: Partial<Record<Pos, string>> = { CB: 'Defensive Back', DE: 'Defensive Line' };
 export const POS_LIST: Pos[] = ['QB', 'RB', 'WR', 'TE', 'OL', 'DE', 'DT', 'LB', 'CB', 'S', 'K', 'P'];
 export const OFFENSE_POS: Pos[] = ['QB', 'RB', 'WR', 'TE', 'OL'];
 export const DEFENSE_POS: Pos[] = ['DE', 'DT', 'LB', 'CB', 'S'];

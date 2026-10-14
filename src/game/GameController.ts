@@ -8,7 +8,7 @@ import { Rng } from '../core/rng';
 import { clamp, fmtClock } from '../core/util';
 import { TEAMS } from '../data/teams';
 import { isDefense } from '../data/positions';
-import { DEF_FORMATIONS, DEF_PLAYS, OFF_PLAYS, type DefPlay, type OffPlay } from '../data/playbook';
+import { DEF_FORMATIONS, DEF_PLAYS, OFF_PLAYS, playUnlockLevel, type DefPlay, type OffPlay } from '../data/playbook';
 import { completeUserGame, lineText, simGrade, snapShare, userPlayer } from '../career/career';
 import { PLAYOFF_WEEK_BASE } from '../league/schedule';
 import { buildMods, DIFFICULTY } from './engine/mods';
@@ -184,7 +184,7 @@ export class GameController {
     input.keyMap = { ...this.settings.keys };
     this.unsub.push(input.onAction((a) => this.onAction(a)));
     this.unsub.push(input.onReceiver((i, ph) => this.onReceiver(i, ph)));
-    audio.setVolume(this.settings.volume, this.settings.sound);
+    audio.setVolume(this.settings.volume, this.settings.sound, this.settings.music);
     audio.unlock();
     audio.startCrowd();
     // Build an idle formation for the pregame backdrop
@@ -386,7 +386,7 @@ export class GameController {
       } else if (trust >= 70) {
         this.mode = 'playcall';
         const options = userOff
-          ? OFF_PLAYS.filter((p) => formationUsesUser(u.pos, p) && !p.tags.includes('special') && (p.formation !== 'goalline' || g.ballOn > 90))
+          ? OFF_PLAYS.filter((p) => formationUsesUser(u.pos, p) && this.unlocked(p) && !p.tags.includes('special') && (p.formation !== 'goalline' || g.ballOn > 90))
           : DEF_PLAYS.filter((d) => formationUsesUser(u.pos, undefined, d) && (!d.tags.includes('goal') || g.ballOn > 90));
         this.hud.playcall = { side: userOff ? 'off' : 'def', suggestion: userOff ? step.play.id : step.defPlay.id, options, canChoose: true, reason: 'High coach trust: you can request the call' };
       } else {
@@ -417,7 +417,7 @@ export class GameController {
   protected qbPlayPool(trust: number): OffPlay[] {
     const g = this.g;
     const all = OFF_PLAYS.filter((p) => (p.formation !== 'goalline' || g.ballOn >= 90 || g.toGo <= 1) && (!p.tags.includes('special') || g.clock < 30));
-    if (trust >= 60) return all;
+    if (trust >= 60) return all.filter((p) => this.unlocked(p) || p.id === this.playOff?.id);
     // Coordinator's call sheet: suggestion + 5 situational plays
     const side = this.sides[this.userSideIdx];
     const set = new Map<string, OffPlay>();
@@ -428,6 +428,11 @@ export class GameController {
       set.set(p.id, p);
     }
     return Array.from(set.values());
+  }
+
+  /** Plays unlock for the user's own calls as their career level rises. */
+  protected unlocked(p: OffPlay): boolean {
+    return this.isDrill || this.career.level >= playUnlockLevel(p.id);
   }
 
   /** Toggle mirroring of the next play. */
@@ -450,7 +455,7 @@ export class GameController {
     const userOff = g.poss === this.userSideIdx;
     const u = this.user;
     const options = userOff
-      ? OFF_PLAYS.filter((p) => formationUsesUser(u.pos, p) && (!p.tags.includes('special') || g.clock < 30) && (p.formation !== 'goalline' || g.ballOn >= 90 || g.toGo <= 1))
+      ? OFF_PLAYS.filter((p) => formationUsesUser(u.pos, p) && this.unlocked(p) && (!p.tags.includes('special') || g.clock < 30) && (p.formation !== 'goalline' || g.ballOn >= 90 || g.toGo <= 1))
       : DEF_PLAYS.filter((d) => formationUsesUser(u.pos, undefined, d));
     this.mode = 'playcall';
     this.hud.playcall = { side: userOff ? 'off' : 'def', suggestion: userOff ? this.step.play.id : this.step.defPlay.id, options, canChoose: true, reason: 'Audible: change the call at the line' };
@@ -863,7 +868,7 @@ export class GameController {
         case 'tackle': case 'sack': audio.hit(e.big || e.type === 'sack'); this.scene?.addShake(e.user ? 0.35 : 0.12); break;
         case 'catch': audio.catch(); break;
         case 'kick': audio.kick(); break;
-        case 'td': audio.cheer(1.3); this.scene?.celebrate(); break;
+        case 'td': audio.cheer(1.3); audio.jingle('td'); this.scene?.celebrate(); break;
         case 'int': case 'fumble': audio.cheer(0.8); this.scene?.addShake(0.2); break;
         case 'juke': case 'spin': case 'miss': if (e.user) audio.cheer(0.4); break;
         case 'whistle': audio.whistle(); break;
@@ -945,6 +950,7 @@ export class GameController {
     const recap = completeUserGame(this.league, this.career, this.game, g, { grade, snaps: this.userSnaps + (anyStats ? 1 : 0), played: played || anyStats, notes: this.notes });
     this.mode = 'final';
     this.hud.recap = recap;
+    if (recap.us > recap.them) { audio.jingle('win'); this.scene?.celebrate(); }
     this.updateScoreboard();
     this.emitHud({ final: true });
     dbgLog.length = 0;

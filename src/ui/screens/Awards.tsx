@@ -1,5 +1,6 @@
 import { store, useApp } from '../store';
 import { Section, TeamLogo, statSummary } from '../components/common';
+import { Trophy } from '../components/Trophy';
 import { AWARD_LABEL } from '../../league/season';
 import { TEAMS, CHAMPIONSHIP_NAME } from '../../data/teams';
 import { toContractPhase, userPlayer } from '../../career/career';
@@ -17,16 +18,20 @@ export function Awards() {
     await store.commit();
     store.go('offseason');
   };
-  const keys: AwardKey[] = ['MVP', 'OPOY', 'DPOY', 'OROY', 'DROY', 'BEST_QB', 'BEST_RB', 'BEST_WR', 'BEST_TE', 'BEST_OL', 'BEST_DL', 'BEST_LB', 'BEST_DB', 'BEST_K'];
+  const keys: AwardKey[] = ['FINAL_MVP', 'MVP', 'OPOY', 'DPOY', 'OROY', 'DROY', 'BEST_QB', 'BEST_RB', 'BEST_WR', 'BEST_TE', 'BEST_OL', 'BEST_DL', 'BEST_LB', 'BEST_DB', 'BEST_K'];
   return (
     <div className="col" style={{ gap: 14 }}>
       <div className="hero center">
         <span className="chip gold">Season {league.season} Complete</span>
-        {h && h.champion >= 0 && (
+        {h && h.champion >= 0 && h.champion === p.teamId && (
+          <div style={{ marginTop: 10 }}><Trophy teamId={h.champion} mvp={h.awardNames.FINAL_MVP} size={3} /></div>
+        )}
+        {h && h.champion >= 0 && h.champion !== p.teamId && (
           <div className="col" style={{ alignItems: 'center', marginTop: 10, position: 'relative', zIndex: 1 }}>
             <TeamLogo id={h.champion} size={90} />
             <h1>{TEAMS[h.champion].city} {TEAMS[h.champion].name}</h1>
             <div className="muted">{CHAMPIONSHIP_NAME} Champions</div>
+            {h.awardNames.FINAL_MVP && <div className="small muted">{CHAMPIONSHIP_NAME} MVP: <b>{h.awardNames.FINAL_MVP}</b></div>}
           </div>
         )}
       </div>
