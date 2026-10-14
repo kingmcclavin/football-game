@@ -452,8 +452,23 @@ export function advanceWeek(league: League, career: Career, skipId?: string) {
   refreshRole(league, career);
   newWeekObjectives(league, career);
   if (!career.pendingEvent && league.phase !== 'offseason') {
-    const ev = rollEvent(new Rng(league.season * 31 + league.week * 7 + career.level), career.eventsSeen);
-    if (ev) career.pendingEvent = ev;
+    const r = new Rng(league.season * 31 + league.week * 7 + career.level);
+    const p = userPlayer(league, career);
+    const stuck = (career.role === 'BK' || career.role === 'PS') && league.phase === 'regular' && league.week >= 4 && league.week <= 11;
+    const alreadyAsked = career.decisions.some((d) => d.season === league.season && d.title === 'Trade Request?');
+    if (stuck && !alreadyAsked && p.ovr >= 60 && r.chance(0.3)) {
+      career.pendingEvent = {
+        id: 'trade_request', title: 'Trade Request?',
+        body: `You have been stuck on the bench as a ${ROLE_LABEL[career.role].toLowerCase()}. Your agent says a couple of teams with holes at ${p.pos} would give you a real shot. Requesting a trade will cost you standing in this locker room.`,
+        choices: [
+          { label: 'Request a trade', detail: 'Move to a team with a clearer path to playing time', effects: { trade: true } },
+          { label: 'Stay and compete', detail: '+4 coach trust, +100 XP', effects: { trust: 4, xp: 100 } },
+        ],
+      };
+    } else {
+      const ev = rollEvent(r, career.eventsSeen);
+      if (ev) career.pendingEvent = ev;
+    }
   }
 }
 
@@ -473,10 +488,25 @@ export function resolveEvent(league: League, career: Career, choiceIdx: number):
   if (e.fatigue) career.fatigue = clamp(career.fatigue + e.fatigue, 0, 100);
   if (e.rep) career.reputation = clamp(career.reputation + e.rep, 0, 100);
   if (e.attr) { p.attrs[e.attr.attr] = clamp((p.attrs[e.attr.attr] ?? 50) + e.attr.delta, 20, 99); p.ovr = calcOvr(p.pos, p.attrs); }
+  let tradeNote = '';
+  if (e.trade) {
+    const from = p.teamId;
+    const cands = league.teams.filter((t) => t.id !== from).map((t) => ({ t, role: projectedRole(league, p, t.id) }))
+      .sort((a, b) => ['ST', 'RT', 'BK', 'PS'].indexOf(a.role) - ['ST', 'RT', 'BK', 'PS'].indexOf(b.role) || teamRatings(league, b.t).ovr - teamRatings(league, a.t).ovr);
+    const dest = cands[0];
+    if (dest) {
+      joinTeam(league, p, dest.t.id);
+      career.trust = 50;
+      refreshRole(league, career);
+      newWeekObjectives(league, career);
+      tradeNote = ` Traded to the ${teamName(dest.t.id)}.`;
+      addNews(league, { title: `Trade: ${p.first} ${p.last} to ${TEAMS[dest.t.id].city}`, body: `The ${TEAMS[from].name} grant the ${p.pos}'s request and send him to the ${TEAMS[dest.t.id].name}.`, kind: 'contract' });
+    } else tradeNote = ' No team made a deal.';
+  }
   career.decisions.push({ season: league.season, week: league.week, title: ev.title, choice: ch.label });
   career.eventsSeen.push(ev.id);
   career.pendingEvent = undefined;
-  return ch.detail;
+  return ch.detail + tradeNote;
 }
 
 /** Weekly training drill result. score 0..100 */

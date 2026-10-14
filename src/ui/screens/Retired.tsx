@@ -34,6 +34,8 @@ export function Retired() {
         <Section title="Awards">{Object.keys(counts).length === 0 ? <div className="muted">No major awards.</div> : Object.entries(counts).map(([k, n]) => <div key={k} className="small news">{n}x {AWARD_LABEL[k as keyof typeof AWARD_LABEL]}</div>)}</Section>
         <Section title="Records Held">{s.records.length === 0 ? <div className="muted">None.</div> : s.records.map((r) => <div key={r} className="small news">{r}</div>)}</Section>
       </div>
+      {career.milestones.length > 0 && <Section title="Memorable Moments">{career.milestones.slice(-15).map((m) => <div key={m} className="small news">{m}</div>)}</Section>}
+      <Section title="Season by Season">{career.seasonLog.map((x) => <div key={x.season} className="small news">{x.season} • {TEAMS[x.teamId]?.abbr} • OVR {x.ovr} • {x.teamRecord} • {x.result}{x.awards.length ? ` • ${x.awards.length} award${x.awards.length > 1 ? 's' : ''}` : ''}</div>)}</Section>
       <Section title="Teams Represented">{s.teams.map((t) => <div key={t} className="small">{TEAMS[t].city} {TEAMS[t].name}</div>)}</Section>
       <button className="btn primary big block" onClick={async () => { await store.save(); store.closeCareer(); }}>Return to Main Menu</button>
     </div>

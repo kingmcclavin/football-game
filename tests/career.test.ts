@@ -89,6 +89,20 @@ describe('career', () => {
     expect(career.retiredSummary?.tier).toBeTruthy();
   });
 
+  it('lets a benched player request a trade', () => {
+    const { league, career } = createCareer(opts('rookie', 'WR'));
+    runDraft(league, career, 50);
+    career.phase = 'season';
+    const p = userPlayer(league, career);
+    const from = p.teamId;
+    career.pendingEvent = { id: 'trade_request', title: 'Trade Request?', body: '', choices: [{ label: 'Request a trade', detail: 'x', effects: { trade: true } }] };
+    const msg = resolveEvent(league, career, 0);
+    expect(msg).toContain('Traded');
+    expect(p.teamId).not.toBe(from);
+    expect(league.teams[p.teamId].roster).toContain(p.id);
+    expect(league.teams[from].roster).not.toContain(p.id);
+  });
+
   it('rejects corrupt saves', () => {
     expect(() => migrate(null)).toThrow();
     expect(() => migrate({ version: 1 })).toThrow();

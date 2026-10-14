@@ -209,7 +209,7 @@ export interface ContractOffer {
 export interface CareerEventChoice {
   label: string;
   detail: string;
-  effects: { trust?: number; xp?: number; fatigue?: number; attr?: { attr: Attr; delta: number }; rep?: number; morale?: number };
+  effects: { trust?: number; xp?: number; fatigue?: number; attr?: { attr: Attr; delta: number }; rep?: number; morale?: number; trade?: boolean };
 }
 export interface CareerEvent {
   id: string;
