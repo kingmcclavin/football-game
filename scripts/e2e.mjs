@@ -10,7 +10,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.addInitScript(() => localStorage.setItem('gl-settings', JSON.stringify({ quarterMinutes: 2, autoContinue: true, sound: false })));
+await page.addInitScript(() => localStorage.setItem('gl-settings', JSON.stringify({ quarterMinutes: 2, autoContinue: true, sound: false, showGuide: false })));
 await page.goto(URL);
 await page.getByText('New Career').click();
 await page.getByText('Quick Start').click();

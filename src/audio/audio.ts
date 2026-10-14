@@ -6,6 +6,7 @@ class AudioEngine {
   enabled = true;
   volume = 0.7;
   private noiseBuf: AudioBuffer | null = null;
+  private visHooked = false;
 
   unlock() {
     if (!this.enabled || typeof window === 'undefined') return;
@@ -23,6 +24,14 @@ class AudioEngine {
         for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       }
       if (this.ctx.state === 'suspended') void this.ctx.resume();
+      if (!this.visHooked) {
+        this.visHooked = true;
+        document.addEventListener('visibilitychange', () => {
+          if (!this.ctx) return;
+          if (document.hidden) void this.ctx.suspend();
+          else void this.ctx.resume();
+        });
+      }
     } catch {
       this.ctx = null;
     }

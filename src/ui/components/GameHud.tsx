@@ -8,6 +8,7 @@ import { ActionButton, Joystick, SprintButton } from './TouchControls';
 import { KickMeter } from './KickMeter';
 import { PlayDiagram, TeamLogo, statSummary } from './common';
 import type { Pos, Settings } from '../../core/types';
+import { store } from '../store';
 
 export interface Playable {
   hud: HudState;
@@ -34,7 +35,7 @@ export interface Playable {
 export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Settings; onQuit: () => void }) {
   const [hud, setHud] = useState<HudState>(ctl.hud);
   const [paused, setPaused] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
+  const [showGuide, setShowGuide] = useState(() => settings.showGuide && hud0(ctl) === 'pregame');
   const [filter, setFilter] = useState<string>('all');
   useEffect(() => ctl.subscribe(setHud), [ctl]);
   useEffect(() => input.onAction((a) => { if (a === 'pause') setPaused((p) => !p); }), []);
@@ -208,10 +209,12 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
           </div>
         </div>
       )}
-      {showGuide && <ControlsGuide onClose={() => setShowGuide(false)} settings={settings} />}
+      {showGuide && <ControlsGuide onClose={() => { setShowGuide(false); if (settings.showGuide) store.setSettings({ showGuide: false }); }} settings={settings} />}
     </div>
   );
 }
+
+const hud0 = (ctl: Playable) => ctl.hud.mode;
 
 export function ControlsGuide({ onClose, settings }: { onClose: () => void; settings: Settings }) {
   const k = (c: string) => c.replace('Key', '').replace('ShiftLeft', 'Shift').replace('Escape', 'Esc');

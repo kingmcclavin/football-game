@@ -240,7 +240,7 @@ export const ROLE_LABEL: Record<Role, string> = { ST: 'Starter', RT: 'Rotation',
 
 /** Share of their unit's snaps the user is on the field for. */
 export function snapShare(role: Role, preseason: boolean): number {
-  if (preseason) return { ST: 0.55, RT: 0.8, BK: 0.85, PS: 0.75 }[role];
+  if (preseason) return { ST: 0.7, RT: 0.85, BK: 0.85, PS: 0.75 }[role];
   return { ST: 1, RT: 0.5, BK: 0.18, PS: 0 }[role];
 }
 
