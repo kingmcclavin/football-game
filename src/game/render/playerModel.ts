@@ -247,7 +247,8 @@ export class PlayerModel {
     this.towel.visible = app.accessories.towel;
     this.neckRoll.visible = app.accessories.neckRoll;
     this.eyeBlack.visible = app.accessories.eyeBlack;
-    this.faceGroup.visible = !showHelmet || app.visor !== 2;
+    // Facial features are hidden behind the facemask in-game (saves draw calls).
+    this.faceGroup.visible = !showHelmet || (a !== undefined && app.visor !== 2);
     // Face preset: subtle variation in eye spacing / brow
     this.faceGroup.scale.set(1 + (app.face - 2) * 0.03, 1, 1);
     // Hair

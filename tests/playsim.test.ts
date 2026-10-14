@@ -87,3 +87,21 @@ describe('PlaySim (AI vs AI)', () => {
     console.log('kickoff starts', starts.join(','));
   });
 });
+
+describe('play flipping', () => {
+  it('mirrors formations and run holes', () => {
+    const offPlay = OFF_PLAYS.find((p) => p.id === 'sb_stretch')!;
+    const defPlay = DEF_PLAYS.find((p) => p.id === 'b_c3')!;
+    const mk = (flip: boolean) => new PlaySim({
+      kind: 'scrimmage', los: 30, hashY: 26.67, toGo: 10, down: 1, off: offenseLineup(league, off, offPlay), def: defenseLineup(league, def, defPlay),
+      offPlay, defPlay, userSide: null, oppDiff: DIFFICULTY.pro, seed: 3, flip,
+    });
+    const a = mk(false), b = mk(true);
+    const te = (s: PlaySim) => s.agents.find((x) => x.slot === 'TE1')!;
+    expect(Math.sign(te(a).y - 26.67)).toBe(-Math.sign(te(b).y - 26.67));
+    const rb = (s: PlaySim) => s.agents.find((x) => x.task.k === 'runner')!;
+    const ha = (rb(a).task as { holeY: number }).holeY - 26.67;
+    const hb = (rb(b).task as { holeY: number }).holeY - 26.67;
+    expect(ha).toBeCloseTo(-hb, 5);
+  });
+});

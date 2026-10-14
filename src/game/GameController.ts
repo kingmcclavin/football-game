@@ -8,7 +8,7 @@ import { Rng } from '../core/rng';
 import { clamp, fmtClock } from '../core/util';
 import { TEAMS } from '../data/teams';
 import { isDefense } from '../data/positions';
-import { DEF_PLAYS, OFF_PLAYS, type DefPlay, type OffPlay } from '../data/playbook';
+import { DEF_FORMATIONS, DEF_PLAYS, OFF_PLAYS, type DefPlay, type OffPlay } from '../data/playbook';
 import { completeUserGame, simGrade, snapShare, userPlayer } from '../career/career';
 import { PLAYOFF_WEEK_BASE } from '../league/schedule';
 import { buildMods, DIFFICULTY } from './engine/mods';
@@ -67,6 +67,9 @@ export interface HudState {
   lastPlay: string;
   twoMinute: boolean;
   matchup: string;
+  playClock: number;
+  canAudible: boolean;
+  flip: boolean;
 }
 
 const dbgLog: string[] = [];
@@ -105,6 +108,10 @@ export class GameController {
   protected resizeObs: ResizeObserver | null = null;
   protected userMods;
   protected preseason: boolean;
+  protected flip = false;
+  protected playClock = 0;
+  protected runoffDone = false;
+  protected readText = '';
 
   constructor(league: League, career: Career, game: Game, settings: Settings, onFinish: (r: GameRecap) => void) {
     this.league = league;
@@ -136,6 +143,7 @@ export class GameController {
       playcall: null, grade: this.liveGrade(), snaps: this.userSnaps, final: g.over, recap: null, charge: 0, camMode: this.scene?.camMode ?? (this.settings.camera as CamMode),
       isQB: this.user.pos === 'QB', lastPlay: g.log[g.log.length - 1]?.text ?? '', twoMinute: (g.quarter === 2 || g.quarter === 4) && g.clock <= 120,
       matchup: `${TEAMS[g.away].abbr} @ ${TEAMS[g.home].abbr}`,
+      playClock: Math.ceil(this.playClock), canAudible: this.canAudible(), flip: this.flip,
     };
   }
 
@@ -263,7 +271,7 @@ export class GameController {
       const step = aiNextStep(this.rng, g, this.sides);
       const involve = this.userInvolvement(step);
       if (involve) {
-        if (ticker.length) {
+        if (ticker.length >= 2 || ticker.some((t) => t.startsWith('\u2605'))) {
           // show what happened while the user was off the field first
           this.step = null;
           this.mode = 'drive';
@@ -338,6 +346,8 @@ export class GameController {
 
   protected setupUserStep(step: NextStep) {
     this.step = step;
+    this.runoffDone = false;
+    this.flip = false;
     const g = this.g;
     const u = this.user;
     this.hud.banner = null;
@@ -397,6 +407,33 @@ export class GameController {
     return Array.from(set.values());
   }
 
+  /** Toggle mirroring of the next play. */
+  toggleFlip() {
+    this.flip = !this.flip;
+    this.emitHud();
+  }
+
+  protected canAudible(): boolean {
+    if (this.mode !== 'presnap' || !this.sim?.user || this.sim.kind !== 'scrimmage' || this.isDrill) return false;
+    const u = this.sim.user;
+    if (u.side === 'off' && u.slot === 'QB') return this.career.trust >= 60;
+    return this.career.trust >= 75;
+  }
+
+  /** Change the play at the line of scrimmage (trust-gated). */
+  audible() {
+    if (!this.canAudible() || !this.step || (this.step.kind !== 'play' && this.step.kind !== 'twopt')) return;
+    const g = this.g;
+    const userOff = g.poss === this.userSideIdx;
+    const u = this.user;
+    const options = userOff
+      ? OFF_PLAYS.filter((p) => formationUsesUser(u.pos, p) && (!p.tags.includes('special') || g.clock < 30) && (p.formation !== 'goalline' || g.ballOn >= 90 || g.toGo <= 1))
+      : DEF_PLAYS.filter((d) => formationUsesUser(u.pos, undefined, d));
+    this.mode = 'playcall';
+    this.hud.playcall = { side: userOff ? 'off' : 'def', suggestion: userOff ? this.step.play.id : this.step.defPlay.id, options, canChoose: true, reason: 'Audible: change the call at the line' };
+    this.emitHud();
+  }
+
   /** User picked a play from the play-call screen. */
   choosePlay(id: string) {
     const g = this.g;
@@ -417,7 +454,8 @@ export class GameController {
   protected beginPresnap() {
     const step = this.step;
     if (!step || (step.kind !== 'play' && step.kind !== 'twopt')) return;
-    preSnap(this.g, step);
+    if (!this.runoffDone) preSnap(this.g, step);
+    this.runoffDone = true;
     if (this.g.clock <= 0 && this.g.phase === 'play') {
       forceQuarterEnd(this.g);
       this.advance();
@@ -426,7 +464,9 @@ export class GameController {
     this.buildScrimmageSim(step.play, step.defPlay, step.kind === 'twopt');
     this.mode = 'presnap';
     const userOff = this.g.poss === this.userSideIdx;
-    this.snapDelay = userOff && this.user.pos === 'QB' ? -1 : -1;
+    this.snapDelay = -1;
+    this.playClock = userOff && this.user.pos === 'QB' && !this.isDrill ? 25 : 0;
+    this.readText = this.defenseRead();
     this.updateScoreboard();
     this.emitHud();
   }
@@ -451,7 +491,7 @@ export class GameController {
       off: offenseLineup(this.league, offTeam, play, userOff ? uof : undefined, true),
       def: defenseLineup(this.league, defTeam, defPlay, userOff ? undefined : uof, true),
       offPlay: play, defPlay, userSide: userOff ? 'off' : 'def', oppDiff: DIFFICULTY[this.career.difficulty], seed: this.rng.int(1, 1e9),
-      twoPoint, penalties: !twoPoint, featureUser: 0.5 + this.career.trust / 200,
+      twoPoint, penalties: !twoPoint, featureUser: 0.5 + this.career.trust / 200, flip: this.flip,
     };
     this.sim = new PlaySim(setup);
     this.scene?.setPlay(this.sim, {
@@ -626,6 +666,17 @@ export class GameController {
     return out;
   }
 
+  /** What a quarterback can read from the defensive alignment before the snap. */
+  protected defenseRead(): string {
+    const d = this.playDef;
+    if (!d) return '';
+    const shell = d.coverage === 'c2' || d.coverage === 'c4' || d.coverage === 'c2m' ? 'Two-high safety shell' : d.coverage === 'c0' ? 'No deep safety' : 'Single-high safety';
+    const press = d.coverage === 'c0' || d.coverage === 'c1' || d.coverage === 'c2m' ? ', corners pressed' : ', corners off';
+    const box = DEF_FORMATIONS[d.formation].name;
+    const blitzLook = d.blitz.length && this.rng.chance(0.6) ? ' Linebackers creeping: possible blitz!' : '';
+    return `Read: ${box}, ${shell}${press}.${blitzLook}`;
+  }
+
   protected assignmentText(): string {
     const sim = this.sim;
     const u = sim?.user;
@@ -638,8 +689,8 @@ export class GameController {
       case 'lead': return 'Lead block through the hole and take on the first defender.';
       case 'runner': return u.slot === 'QB' ? 'Designed QB run: follow your blockers.' : 'Take the handoff and hit the hole. Use JUKE/SPIN/STIFF ARM to break tackles.';
       case 'fake': return 'Sell the play-action fake, then help in protection.';
-      case 'qbPass': return 'Drop back, read the field. Hold a receiver button to charge a bullet, tap for touch.';
-      case 'qbHand': return t.pa ? 'Fake the handoff, then find an open receiver.' : 'Hand the ball off, then carry out your fake.';
+      case 'qbPass': return `${this.readText} Hold a receiver button to charge a bullet, tap for touch.`;
+      case 'qbHand': return t.pa ? `Fake the handoff, then find an open receiver. ${this.readText}` : 'Hand the ball off, then carry out your fake.';
       case 'rush': return 'Rush the passer. Mash SHED when engaged; TACKLE when close.';
       case 'man': return `Man coverage on #${sim.agents[t.target].p.num}. Stay on his hip; SWAT when the ball arrives.`;
       case 'zone': return 'Zone coverage: guard your area (yellow ring), then break on the ball.';
@@ -658,6 +709,13 @@ export class GameController {
         this.autoT = -1;
         if (this.mode === 'result') this.continueAfterResult();
         else if (this.mode === 'drive') this.continueFromDrive();
+      }
+    }
+    if (this.playClock > 0 && this.mode === 'presnap') {
+      this.playClock -= dt;
+      if (this.playClock <= 0) {
+        this.playClock = 0;
+        this.delayOfGame();
       }
     }
     if (this.snapDelay > 0 && this.mode === 'presnap') {
@@ -756,6 +814,16 @@ export class GameController {
     this.autoT = this.settings.autoContinue ? (o.td || o.kind === 'interception' ? 2.6 : 1.7) : -1;
     this.updateScoreboard();
     this.emitHud({ lastPlay: o.desc });
+  }
+
+  protected delayOfGame() {
+    const g = this.g;
+    applyOutcome(g, { kind: 'run', endX: g.ballOn, holder: 'off', duration: 0, stats: [], desc: '', penalty: { name: 'Delay of Game', against: 'off', yards: 5, preSnap: true } });
+    this.career.trust = Math.max(0, this.career.trust - 1);
+    this.mode = 'result';
+    this.hud.banner = { title: 'FLAG: Delay of Game', sub: `${downLabel(g)} at ${fieldPosLabel(g)}`, tone: 'bad' };
+    this.autoT = 2;
+    this.emitHud();
   }
 
   continueAfterResult() {

@@ -77,3 +77,22 @@ export function ActionButton({ label, keyHint, big, onPress, scale }: { label: s
     </button>
   );
 }
+
+/** Hold-to-sprint button (auto-sprint at full stick also works). */
+export function SprintButton({ scale }: { scale: number }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => () => { input.sprintTouch = false; }, []);
+  const set = (v: boolean) => { input.sprintTouch = v; setOn(v); };
+  return (
+    <button
+      className={`abtn ${on ? 'pressed' : ''}`}
+      style={{ transform: `scale(${scale})`, transformOrigin: 'bottom right' }}
+      onPointerDown={(e) => { e.preventDefault(); (e.target as HTMLElement).setPointerCapture?.(e.pointerId); set(true); }}
+      onPointerUp={() => set(false)}
+      onPointerCancel={() => set(false)}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      Sprint<small>Shift</small>
+    </button>
+  );
+}

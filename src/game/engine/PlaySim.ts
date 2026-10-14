@@ -156,6 +156,8 @@ export interface ScrimmageSetup {
   penalties?: boolean;
   /** AI QB preference for the user target (0..1). */
   featureUser?: number;
+  /** Mirror the play left/right. */
+  flip?: boolean;
   drill?: boolean;
 }
 
@@ -280,11 +282,12 @@ export class PlaySim {
     const form = FORMATIONS[s.offPlay.formation];
     const los = s.los;
     const hy = s.hashY;
+    const fl = s.flip ? -1 : 1;
     const offAgents: Partial<Record<OffSlot, SimAgent>> = {};
     for (const spot of form.spots) {
       const pl = s.off[spot.slot];
       if (!pl) continue;
-      const y = clamp(hy + spot.dy, 1.5, FIELD_W - 1.5);
+      const y = clamp(hy + spot.dy * fl, 1.5, FIELD_W - 1.5);
       const a = this.addAgent(pl, 'off', spot.slot, los + spot.dx, y, { k: 'none' }, this.diffFor('off', s.userSide));
       offAgents[spot.slot] = a;
       if (spot.slot === 'QB') this.qb = a.i;
@@ -299,15 +302,15 @@ export class PlaySim {
         if (play.type === 'run' && play.carrier !== 'QB') {
           const rb = offAgents[play.carrier ?? 'RB'];
           const runAsg = play.assign[play.carrier ?? 'RB'];
-          const holeY = runAsg && runAsg.kind === 'run' ? hy + runAsg.hole : hy;
+          const holeY = runAsg && runAsg.kind === 'run' ? hy + runAsg.hole * fl : hy;
           const meshX = form.underCenter ? los - 3 : los - 4.6;
           const meshY = rb ? (a.y + (holeY - a.y) * 0.25) : a.y;
           a.task = { k: 'qbHand', meshX, meshY, pa: false, drop: 2 };
         } else if (play.type === 'run' && play.carrier === 'QB' && asg?.kind === 'run') {
-          a.task = { k: 'runner', holeY: hy + asg.hole, style: asg.style, meshX: a.x, meshY: a.y };
+          a.task = { k: 'runner', holeY: hy + asg.hole * fl, style: asg.style, meshX: a.x, meshY: a.y };
         } else if (this.playAction) {
           const fakeAsg = Object.values(play.assign).find((x) => x?.kind === 'fake') as { kind: 'fake'; hole: number } | undefined;
-          a.task = { k: 'qbHand', meshX: los - 3.2, meshY: hy + (fakeAsg ? fakeAsg.hole * 0.3 : 0), pa: true, drop: play.dropback ?? 5 };
+          a.task = { k: 'qbHand', meshX: los - 3.2, meshY: hy + (fakeAsg ? fakeAsg.hole * 0.3 * fl : 0), pa: true, drop: play.dropback ?? 5 };
         } else {
           const drop = play.dropback ?? 3;
           a.task = { k: 'qbPass', drop, setX: Math.max(los - 9, a.x - (form.underCenter ? drop + 1 : drop * 0.5)), setY: a.y };
@@ -322,7 +325,7 @@ export class PlaySim {
       switch (asg.kind) {
         case 'route':
         case 'checkRelease': {
-          const side = asg.side ?? (a.y >= hy ? 1 : -1);
+          const side = asg.side !== undefined ? asg.side * fl : (a.y >= hy ? 1 : -1);
           const r = ROUTES[asg.route];
           const pts = r.pts.map(([f, o]) => ({ x: Math.min(108, a.x + f), y: clamp(a.y + o * side, 3.5, FIELD_W - 3.5) }));
           a.task = { k: 'route', pts, idx: 0, stop: !!r.stop, delay: asg.kind === 'checkRelease' ? 1.1 : asg.delay ?? 0, depth: r.depth, name: asg.route };
@@ -332,10 +335,10 @@ export class PlaySim {
           a.task = play.type === 'run' ? { k: 'runBlock', holeY: this.holeY(play, hy) } : { k: 'passBlock' };
           break;
         case 'lead':
-          a.task = { k: 'lead', holeY: this.holeY(play, hy) + (asg.side ?? 0) * 0.5 };
+          a.task = { k: 'lead', holeY: this.holeY(play, hy) + (asg.side ?? 0) * 0.5 * fl };
           break;
         case 'run': {
-          const holeY = hy + asg.hole;
+          const holeY = hy + asg.hole * fl;
           const qbA = offAgents.QB;
           const meshX = form.underCenter ? los - 3 : los - 4.6;
           const meshY = qbA ? qbA.y + (holeY - qbA.y) * 0.25 : a.y;
@@ -343,7 +346,7 @@ export class PlaySim {
           break;
         }
         case 'fake':
-          a.task = { k: 'fake', holeY: hy + asg.hole };
+          a.task = { k: 'fake', holeY: hy + asg.hole * fl };
           break;
       }
     }
@@ -446,7 +449,8 @@ export class PlaySim {
 
   private holeY(play: OffPlay, hy: number): number {
     const asg = play.assign[play.carrier ?? 'RB'];
-    return asg && asg.kind === 'run' ? hy + asg.hole : hy;
+    const fl = (this.setup as ScrimmageSetup).flip ? -1 : 1;
+    return asg && asg.kind === 'run' ? hy + asg.hole * fl : hy;
   }
 
   private buildKick(s: KickSetup) {

@@ -4,13 +4,15 @@ import type { KickParams } from '../../game/engine/PlaySim';
 import { input, type ActionName } from '../../game/input/Input';
 import { TEAMS } from '../../data/teams';
 import { FORMATIONS, type DefPlay, type OffPlay } from '../../data/playbook';
-import { ActionButton, Joystick } from './TouchControls';
+import { ActionButton, Joystick, SprintButton } from './TouchControls';
 import { KickMeter } from './KickMeter';
 import { PlayDiagram, TeamLogo, statSummary } from './common';
 import type { Pos, Settings } from '../../core/types';
 
 export interface Playable {
   hud: HudState;
+  audible(): void;
+  toggleFlip(): void;
   subscribe(fn: (h: HudState) => void): () => void;
   start(): void;
   snap(): void;
@@ -102,7 +104,10 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
           <div className="box col">
             <div className="row between wrap">
               <div><h3>{hud.playcall.side === 'off' ? 'Call a Play' : 'Defensive Call'}</h3><div className="tiny muted">{hud.playcall.reason}</div></div>
-              <button className="btn primary" onClick={() => ctl.choosePlay(hud.playcall!.suggestion)}>Coach's Call</button>
+              <div className="row">
+                {hud.playcall.side === 'off' && <button className={`btn sm ${hud.flip ? 'primary' : ''}`} onClick={() => ctl.toggleFlip()}>⇆ Flip {hud.flip ? 'On' : 'Off'}</button>}
+                <button className="btn primary" onClick={() => ctl.choosePlay(hud.playcall!.suggestion)}>Coach's Call</button>
+              </div>
             </div>
             {formations.length > 1 && (
               <div className="tabs" style={{ marginBottom: 0 }}>
@@ -159,7 +164,10 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
         <>
           {hud.mode === 'live' && hud.userOnField && <Joystick lefty={lefty} scale={scale} />}
           {hud.mode === 'presnap' && (
-            <div className="assign"><b>{hud.playName || 'Ready'}</b>{hud.assignment}</div>
+            <div className="assign"><b>{hud.playName || 'Ready'}{hud.playClock > 0 ? ` • Play clock ${hud.playClock}` : ''}</b>{hud.assignment}</div>
+          )}
+          {hud.mode === 'presnap' && hud.canAudible && (
+            <div className="hudtop right" style={{ top: 'calc(56px + var(--safe-t))' }}><button className="btn sm" onClick={() => ctl.audible()}>Audible</button></div>
           )}
           {hud.receivers.length > 0 && hud.mode === 'live' ? (
             <div className="recv" style={lefty ? { right: 'auto', left: 14, alignItems: 'flex-start' } : undefined}>
@@ -178,6 +186,7 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
           ) : (
             <div className={`actions ${lefty ? 'lefty' : ''}`}>
               {hud.buttons.map((b) => <ActionButton key={b.id} label={b.label} keyHint={b.key} big={b.big} scale={scale} onPress={() => press(b.id)} />)}
+              {hud.mode === 'live' && hud.userOnField && <SprintButton scale={scale} />}
             </div>
           )}
           {hud.mode === 'live' && !hud.userOnField && <div className="assign">Watching the play…</div>}
