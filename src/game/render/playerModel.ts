@@ -84,7 +84,7 @@ export class PlayerModel {
     const m = (k: string, c: string, o?: Partial<THREE.MeshLambertMaterialParameters>) => (this.mats[k] = mat(c, o));
     m('jersey', '#ffffff');
     m('pants', '#dddddd');
-    m('helmet', '#cccccc');
+    this.mats.helmet = new THREE.MeshPhongMaterial({ color: '#cccccc', shininess: 80, specular: new THREE.Color('#888888') }) as unknown as THREE.MeshLambertMaterial;
     m('skin', SKIN_TONES[3]);
     m('socks', '#222222');
     m('glove', '#222222');
@@ -105,86 +105,106 @@ export class PlayerModel {
     };
 
     this.root.add(this.body);
+    const cap = (r: number, len: number, seg = 8) => geo(`cap${r},${len},${seg}`, () => new THREE.CapsuleGeometry(r, len, 3, seg));
     // Legs
     for (const [hip, knee, side] of [[this.hipL, this.kneeL, 1], [this.hipR, this.kneeR, -1]] as [THREE.Group, THREE.Group, number][]) {
-      hip.position.set(0.12 * side, 0.93, 0);
+      hip.position.set(0.115 * side, 0.95, 0);
       this.body.add(hip);
-      add(hip, cyl(0.1, 0.085, 0.47), 'pants', 0, -0.235, 0);
+      add(hip, cap(0.098, 0.3), 'pants', 0, -0.23, 0);
       knee.position.set(0, -0.47, 0);
       hip.add(knee);
-      add(knee, cyl(0.075, 0.055, 0.42), 'socks', 0, -0.21, 0);
-      add(knee, box(0.12, 0.08, 0.26), 'cleat', 0, -0.44, 0.05);
+      add(knee, cap(0.072, 0.28), 'socks', 0, -0.2, 0);
+      const cleat = add(knee, box(0.11, 0.07, 0.25), 'cleat', 0, -0.445, 0.05);
+      cleat.scale.set(1, 1, 1);
     }
     // Pelvis
-    add(this.body, box(0.38, 0.2, 0.25), 'pants', 0, 0.98, 0);
+    const pelvis = add(this.body, cap(0.14, 0.07), 'pants', 0, 0.97, 0);
+    pelvis.rotation.z = Math.PI / 2;
+    pelvis.scale.set(1, 1, 0.82);
     this.towel = add(this.body, box(0.1, 0.2, 0.01), 'band', 0.1, 0.85, 0.13);
-    // Torso
+    // Torso: tapered, slightly flattened front-to-back
     this.torso.position.set(0, 1.07, 0);
     this.body.add(this.torso);
-    add(this.torso, box(0.46, 0.5, 0.28), 'jersey', 0, 0.25, 0);
-    add(this.torso, box(0.7, 0.17, 0.36), 'jersey', 0, 0.47, 0);
-    add(this.torso, box(0.71, 0.03, 0.37), 'stripe', 0, 0.4, 0);
-    const plane = geo('numplane', () => new THREE.PlaneGeometry(0.3, 0.3));
+    const chest = add(this.torso, geo('chest', () => new THREE.CylinderGeometry(0.255, 0.19, 0.56, 10)), 'jersey', 0, 0.27, 0);
+    chest.scale.set(1, 1, 0.66);
+    // Shoulder pads: a wide dome under the jersey
+    const pads = add(this.torso, sph(0.3, 12, 8), 'jersey', 0, 0.47, 0);
+    pads.scale.set(1.22, 0.42, 0.74);
+    const plane = geo('numplane', () => new THREE.PlaneGeometry(0.28, 0.28));
     this.numFront = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({ transparent: true }));
-    this.numFront.position.set(0, 0.24, 0.145);
+    this.numFront.position.set(0, 0.24, 0.158);
     this.torso.add(this.numFront);
     this.numBack = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({ transparent: true }));
-    this.numBack.position.set(0, 0.28, -0.145);
+    this.numBack.position.set(0, 0.29, -0.16);
     this.numBack.rotation.y = Math.PI;
     this.torso.add(this.numBack);
     // Neck & head
-    add(this.torso, cyl(0.07, 0.08, 0.12), 'skin', 0, 0.6, 0);
-    this.neckRoll = add(this.torso, geo('neckroll', () => new THREE.TorusGeometry(0.11, 0.04, 6, 10)), 'jersey', 0, 0.58, 0);
+    add(this.torso, cyl(0.068, 0.075, 0.14), 'skin', 0, 0.62, 0);
+    this.neckRoll = add(this.torso, geo('neckroll', () => new THREE.TorusGeometry(0.1, 0.04, 6, 12)), 'jersey', 0, 0.6, -0.01);
     this.neckRoll.rotation.x = Math.PI / 2;
-    this.head.position.set(0, 0.76, 0);
+    this.head.position.set(0, 0.79, 0.01);
     this.torso.add(this.head);
-    add(this.head, sph(0.12), 'skin');
+    const skull = add(this.head, sph(0.112, 12, 10), 'skin');
+    skull.scale.set(0.95, 1.08, 1);
     this.head.add(this.faceGroup);
     this.head.add(this.hairGroup);
     this.head.add(this.helmetGroup);
-    // Helmet
-    const shell = add(this.helmetGroup, geo('helmet', () => new THREE.SphereGeometry(0.165, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.62)), 'helmet', 0, 0.02, -0.01);
-    shell.rotation.x = -0.25;
-    add(this.helmetGroup, box(0.03, 0.03, 0.3), 'stripe', 0, 0.175, -0.02);
-    add(this.helmetGroup, box(0.25, 0.08, 0.16), 'helmet', 0, -0.07, -0.04);
-    // Facemask variants
+    // Helmet shell (glossy), stripe and jaw pads
+    const shellMat = this.mats.helmet;
+    const shell = new THREE.Mesh(geo('helmet2', () => new THREE.SphereGeometry(0.152, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.66)), shellMat);
+    shell.scale.set(1, 1.06, 1.14);
+    shell.position.set(0, 0.025, -0.015);
+    shell.rotation.x = -0.18;
+    this.helmetGroup.add(shell);
+    const ear = add(this.helmetGroup, box(0.29, 0.1, 0.17), 'helmet', 0, -0.045, -0.02);
+    ear.scale.set(1, 1, 1);
+    add(this.helmetGroup, box(0.028, 0.03, 0.33), 'stripe', 0, 0.17, -0.02);
+    // Facemask variants: a cage of thin bars in front of the face
     for (let style = 0; style < 4; style++) {
       const fm = new THREE.Group();
       const bars = style === 1 ? 2 : style === 2 ? 4 : 3;
       for (let b = 0; b < bars; b++) {
-        const bar = add(fm, box(0.24, 0.018, 0.02), 'mask', 0, -0.03 - b * (style === 3 ? 0.035 : 0.045), 0.17 - b * 0.005);
-        if (style === 3) bar.scale.x = 0.8 + b * 0.1;
+        const w = 0.2 - b * 0.012 * (style === 3 ? 2 : 1);
+        add(fm, box(w, 0.016, 0.018), 'mask', 0, -0.035 - b * (style === 3 ? 0.032 : 0.042), 0.168 - b * 0.004);
       }
-      add(fm, box(0.018, bars * 0.045 + 0.02, 0.02), 'mask', 0, -0.03 - bars * 0.02, 0.172);
-      if (style === 2) { add(fm, box(0.018, 0.18, 0.02), 'mask', 0.06, -0.1, 0.172); add(fm, box(0.018, 0.18, 0.02), 'mask', -0.06, -0.1, 0.172); }
+      const h = bars * 0.042 + 0.03;
+      for (const sx of [-1, 1]) {
+        const side = add(fm, box(0.016, h, 0.06), 'mask', sx * 0.1, -0.02 - h / 2 + 0.02, 0.14);
+        side.rotation.y = sx * 0.5;
+      }
+      if (style !== 1) add(fm, box(0.016, h - 0.01, 0.018), 'mask', 0, -0.03 - h / 2 + 0.02, 0.17);
+      if (style === 2) for (const sx of [-1, 1]) add(fm, box(0.016, h, 0.018), 'mask', sx * 0.055, -0.03 - h / 2 + 0.02, 0.169);
       this.helmetGroup.add(fm);
       this.facemasks.push(fm);
     }
-    this.visor = add(this.helmetGroup, box(0.22, 0.07, 0.01), 'visor', 0, 0.03, 0.155);
+    this.visor = add(this.helmetGroup, box(0.2, 0.06, 0.01), 'visor', 0, 0.022, 0.158);
     // Face details
-    const eyeGeo = sph(0.018, 6, 5);
-    add(this.faceGroup, eyeGeo, 'dark', 0.045, 0.02, 0.11);
-    add(this.faceGroup, eyeGeo, 'dark', -0.045, 0.02, 0.11);
-    add(this.faceGroup, box(0.03, 0.05, 0.03), 'skin', 0, -0.02, 0.12);
+    const eyeGeo = sph(0.016, 6, 5);
+    add(this.faceGroup, eyeGeo, 'dark', 0.042, 0.018, 0.1);
+    add(this.faceGroup, eyeGeo, 'dark', -0.042, 0.018, 0.1);
+    add(this.faceGroup, box(0.028, 0.045, 0.03), 'skin', 0, -0.018, 0.108);
+    add(this.faceGroup, box(0.05, 0.01, 0.01), 'dark', 0, -0.06, 0.1);
     this.eyeBlack = new THREE.Group();
-    add(this.eyeBlack, box(0.04, 0.012, 0.01), 'dark', 0.045, -0.015, 0.117);
-    add(this.eyeBlack, box(0.04, 0.012, 0.01), 'dark', -0.045, -0.015, 0.117);
+    add(this.eyeBlack, box(0.036, 0.011, 0.01), 'dark', 0.042, -0.012, 0.106);
+    add(this.eyeBlack, box(0.036, 0.011, 0.01), 'dark', -0.042, -0.012, 0.106);
     this.faceGroup.add(this.eyeBlack);
-    // Arms
+    // Arms (capsules) with jersey sleeve caps
     for (const [sh, el, side] of [[this.shoulderL, this.elbowL, 1], [this.shoulderR, this.elbowR, -1]] as [THREE.Group, THREE.Group, number][]) {
-      sh.position.set(0.32 * side, 0.43, 0);
+      sh.position.set(0.31 * side, 0.44, 0);
       this.torso.add(sh);
-      add(sh, cyl(0.075, 0.065, 0.32), 'skin', 0, -0.16, 0);
-      add(sh, cyl(0.085, 0.08, 0.12), 'jersey', 0, -0.04, 0);
+      add(sh, cap(0.068, 0.2), 'skin', 0, -0.17, 0);
+      add(sh, cap(0.088, 0.06), 'jersey', 0, -0.05, 0);
+      add(sh, cyl(0.09, 0.09, 0.025, 10), 'stripe', 0, -0.13, 0);
       el.position.set(0, -0.32, 0);
       sh.add(el);
-      add(el, cyl(0.06, 0.05, 0.28), 'skin', 0, -0.14, 0);
-      add(el, sph(0.055, 6, 5), 'glove', 0, -0.3, 0);
-      const band = add(el, cyl(0.062, 0.062, 0.06), 'band', 0, -0.24, 0);
+      add(el, cap(0.054, 0.18), 'skin', 0, -0.14, 0);
+      const hand = add(el, sph(0.055, 8, 6), 'glove', 0, -0.3, 0.005);
+      hand.scale.set(0.9, 1.15, 0.8);
+      const band = add(el, cyl(0.06, 0.06, 0.06), 'band', 0, -0.23, 0);
       this.bands.push(band);
     }
-    this.sleeveR = add(this.shoulderR, cyl(0.078, 0.068, 0.3), 'sleeve', 0, -0.17, 0);
-    this.sleeveL = add(this.shoulderL, cyl(0.078, 0.068, 0.3), 'sleeve', 0, -0.17, 0);
+    this.sleeveR = add(this.shoulderR, cap(0.074, 0.2), 'sleeve', 0, -0.17, 0);
+    this.sleeveL = add(this.shoulderL, cap(0.074, 0.2), 'sleeve', 0, -0.17, 0);
     // Shadow & marker
     this.shadow = new THREE.Mesh(geo('shadow', () => new THREE.PlaneGeometry(1.2, 1.2)), new THREE.MeshBasicMaterial({ map: blobShadowTexture(), transparent: true, depthWrite: false }));
     this.shadow.rotation.x = -Math.PI / 2;
