@@ -22,6 +22,7 @@ import { Offseason } from './ui/screens/Offseason';
 import { Retired } from './ui/screens/Retired';
 import { Help } from './ui/screens/Help';
 import { TeamScreen } from './ui/screens/Team';
+import { ExhibitionScreen } from './ui/screens/Exhibition';
 import { audio } from './audio/audio';
 
 const NAV: { id: Screen; label: string; ic: string }[] = [
@@ -84,7 +85,7 @@ export function App() {
     const inGame = s.screen === 'game' || s.screen === 'combine' || (s.screen === 'training' && !!s.params.drill);
     audio.music(inGame ? null : s.screen === 'menu' || s.screen === 'create' ? 'menu' : 'hub');
   }, [s.screen, s.params.drill]);
-  const needsCareer = !['menu', 'create', 'help'].includes(s.screen);
+  const needsCareer = !['menu', 'create', 'help', 'exhibition'].includes(s.screen) && !(s.screen === 'game' && s.params.exhibition);
   if (needsCareer && (!s.career || !s.league)) return <MainMenu />;
   let body: ReactNode;
   switch (s.screen) {
@@ -92,6 +93,7 @@ export function App() {
     case 'create': return <CreateCareer />;
     case 'combine': return <Combine />;
     case 'game': return <GameScreen />;
+    case 'exhibition': return <ExhibitionScreen />;
     case 'draft': body = <DraftReveal />; break;
     case 'hub': body = <Hub />; break;
     case 'postgame': body = <Postgame />; break;

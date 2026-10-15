@@ -129,7 +129,11 @@ export class GameController {
   protected summaryTitle = '';
   protected halftimeShown = false;
 
-  constructor(league: League, career: Career, game: Game, settings: Settings, onFinish: (r: GameRecap) => void) {
+  /** allSnaps: the user plays every snap their unit is on the field (exhibitions). */
+  protected opts: { allSnaps?: boolean; title?: string };
+
+  constructor(league: League, career: Career, game: Game, settings: Settings, onFinish: (r: GameRecap) => void, opts: { allSnaps?: boolean; title?: string } = {}) {
+    this.opts = opts;
     this.league = league;
     this.career = career;
     this.game = game;
@@ -380,10 +384,11 @@ export class GameController {
     const u = this.user;
     const userPoss = g.poss === this.userSideIdx;
     const role = this.career.role;
-    if (role === 'PS' && !this.preseason) return false;
+    if (role === 'PS' && !this.preseason && !this.opts.allSnaps) return false;
     const diff = g.score[this.userSideIdx] - g.score[1 - this.userSideIdx];
     let share = snapShare(role, this.preseason);
     if (g.quarter >= 4 && Math.abs(diff) >= 21) share = role === 'ST' ? 0.4 : 1;
+    if (this.opts.allSnaps) share = 1;
     if (step.kind === 'kickoff' || step.kind === 'punt') {
       if (userPoss) return (step.kind === 'kickoff' ? u.pos === 'K' : u.pos === 'P');
       const team = this.league.teams[u.teamId];
@@ -1101,6 +1106,7 @@ export class GameController {
     return this.userMods.kickMeter ?? 1;
   }
   get title(): string {
+    if (this.opts.title) return this.opts.title;
     return this.game.preseason ? 'Preseason' : this.game.week > PLAYOFF_WEEK_BASE ? ['Wild Card', 'Divisional Round', 'Conference Championship', 'Crown Bowl'][this.game.week - PLAYOFF_WEEK_BASE - 1] : `Week ${this.game.week}`;
   }
   get userPos() {

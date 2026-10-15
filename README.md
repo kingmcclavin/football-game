@@ -53,6 +53,8 @@ No environment variables or server configuration are needed. Fonts (Press Start 
 6. **Seasons.** 3 preseason games, 17 regular-season weeks, a 14-team playoff and the **Crown Bowl**, with a trophy celebration and a Crown Bowl MVP. Awards are based on real stats and team success.
 7. **Offseason.** Extensions, re-signing or free agency with competing offers. The league ages, retires players, drafts rookies and builds a new schedule. Retire whenever you like for a career retrospective and Hall of Fame verdict.
 
+**Exhibition Game** (main menu) plays a single, unsaved game for practice or testing: pick a position, a rating (62 / 73 / 88), your team, an opponent, home or away, difficulty and quarter length. You are in on every snap your unit plays, and you return to the setup screen with your stat line afterwards.
+
 A short first-time tutorial appears the first time you play each position group. Replay it from the pause menu, or reset all tutorials in Settings.
 
 ### Controls

@@ -7,7 +7,7 @@ import { TEAMS } from '../data/teams';
 export type Screen =
   | 'menu' | 'create' | 'combine' | 'draft' | 'hub' | 'game' | 'postgame' | 'training' | 'progression' | 'stats' | 'schedule'
   | 'standings' | 'bracket' | 'depth' | 'playbook' | 'contracts' | 'history' | 'settings' | 'customize' | 'awards' | 'offseason'
-  | 'retired' | 'league' | 'help' | 'team';
+  | 'retired' | 'league' | 'help' | 'team' | 'exhibition';
 
 export interface AppState {
   screen: Screen;

@@ -78,6 +78,7 @@ export function MainMenu() {
           </button>
         )}
         <button className={`btn big block ${lastInfo ? '' : 'primary'}`} onClick={() => (firstEmpty >= 0 ? store.go('create', { slot: firstEmpty }) : setNewSlot(true))}>New Career</button>
+        <button className="btn big block" onClick={() => store.go('exhibition')}>Exhibition Game</button>
         <div className="card">
           <h3>Career Slots</h3>
           <div className="col">

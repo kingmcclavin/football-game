@@ -108,3 +108,19 @@ describe('Drills (headless)', () => {
     });
   }
 });
+
+describe('Exhibition game', () => {
+  it('plays a standalone game where the user is in on every offensive snap', () => {
+    const { league, career: c } = createCareer({ first: 'Exhibition', last: 'Player', pos: 'WR', archetype: 'wr_route', num: 11, ht: 74, wt: 200, appearance: defaultAppearance(), startMode: 'established', teamChoice: 3, difficulty: 'pro', quarterMinutes: 2, slot: -1, seed: 77 });
+    c.role = 'BK'; // even a backup plays every snap in an exhibition
+    const game = { id: 'exh-test', season: league.season, week: 1, home: 3, away: 9, hs: 0, as: 0, played: false };
+    let recap = null as unknown;
+    const ctl = new GameController(league, c, game, { ...defaultSettings(), autoContinue: false }, (r) => { recap = r; }, { allSnaps: true, title: 'Exhibition' });
+    expect(ctl.title).toBe('Exhibition');
+    const plays = driveGame(ctl);
+    ctl.finish();
+    expect(recap).toBeTruthy();
+    expect(ctl.g.over).toBe(true);
+    expect(plays).toBeGreaterThan(8);
+  });
+});
