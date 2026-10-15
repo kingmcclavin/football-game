@@ -10,6 +10,7 @@
  *   fuzz N SEED            N frames of random input (crash / hang hunting)
  *   expect_pc_rom          fail if the CPU is not executing ROM/IWRAM code
  *   savedump FILE          write the current battery save to FILE
+ *   poke ADDR VAL          write one byte (test setup)
  *   peek ADDR [N]          print N 32-bit words from the bus
  *   alive ADDR             watch the game's frame counter at ADDR (hang detection)
  *   echo TEXT              print text
@@ -209,6 +210,8 @@ int main(int argc, char **argv)
                 printf("[%ld] no save data\n", frames);
             }
             free(sram);
+        } else if (!strcmp(cmd, "poke")) {
+            core->busWrite8(core, (unsigned)strtoul(a1, NULL, 0), (int)strtol(a2, NULL, 0));
         } else if (!strcmp(cmd, "peek")) {
             unsigned addr = (unsigned)strtoul(a1, NULL, 0);
             int cnt = n > 2 ? atoi(a2) : 1;

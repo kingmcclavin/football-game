@@ -40,15 +40,17 @@ The game takes its inspiration from short-session arcade football career games. 
 |---|---|---|---|
 | D-pad | Move cursor | Move the QB in the pocket. While aiming, nudge the target | UP/DOWN steer, LEFT cuts back, RIGHT is full speed. The runner moves upfield on his own |
 | A | Confirm | Snap. **Hold** to aim (time slows, the power meter fills), **release** to throw | Juke |
-| B | Back / cancel | Throw the ball away | Dive |
+| B | Back / cancel. Before the snap: audible (3 per game) | Throw the ball away | Dive |
 | L / R | Switch conference (standings) | Cycle the target receiver | R: stiff arm |
-| START | Pause (at the play call), confirm lists | — | — |
+| START | Pause (before the snap), confirm lists | — | — |
 | SELECT | Open the roster from free agency / draft | — | — |
 
 The game also has a 4-page **HOW TO PLAY** guide, on the title screen, in the career menu and in the pause menu.
 
 ### On the field
-- **Play call:** pick from 12 calls: Slants, Curl Flat, Deep Post, Outs, HB Screen, PA Bomb, HB Dive, HB Sweep, QB Sneak, Kneel, Punt and Field Goal. Dotted lines preview each receiver's route. Press **A** to snap, or **B** to pick a different play.
+- **Play calling (Retro Bowl style):** the coach calls every play for you, based on down, distance, field position and the clock. The play's name shows at the top, and dotted lines preview each receiver's route. Press **A** to snap.
+- **Audibles:** press **B** before the snap to audible to any play in the 10-play playbook: Slants, Curl Flat, Deep Post, Outs, HB Screen, PA Bomb, HB Dive, HB Sweep, QB Sneak or Kneel. You get **3 audibles per game**. The counter is shown at the top right, and B cancels without spending one.
+- **4th down:** you choose **GO FOR IT**, **PUNT** or **FIELD GOAL**. A punt is greyed out inside the opponent's 40, and a field goal is greyed out beyond 70 yards. After a touchdown, you choose the extra-point kick or a 2-point try.
 - **Passing:** **L/R** chooses the target. A green arrow means he's open, red means he's covered. **Hold A** to aim. The game runs in slow motion while a reticle and an arc show where the ball will land, and the meter fills from **LOB** to **BULLET**. Lobs float over coverage but take longer. Bullets arrive fast but are harder to catch and slightly less accurate. QB accuracy and arm strength, pressure, moving while throwing, and distance all add error. Defenders break on the ball and can deflect it or intercept it. Receivers can make contested catches and the occasional diving catch.
 - **Running:** blockers engage defenders and defenders take pursuit angles. Speed and agility decide who breaks tackles. Juke, dive and stiff arm each have a cooldown.
 - **Kicking:** press A to stop the power meter, then press A again when the aim arrow is in the green zone. The zone gets narrower on longer kicks and is wider for accurate kickers. Overpowering a kick hooks it.

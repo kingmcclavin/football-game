@@ -30,6 +30,7 @@ static char s_banner[32];
 static int s_bannerPal;
 static int s_quit;
 static int s_demo;
+static int s_audibles; /* audibles left this game */
 
 /* demo / attract mode: any button ends the demo */
 static void demo_check(void)
@@ -460,13 +461,16 @@ static int pause_menu(void)
     }
 }
 
-static int ai_play_call(int conversion)
+/* The coach's call: picks a play for the situation. With allowKicks = 0
+ * it never returns PUNT / FIELD GOAL (4th-down kicks are the player's
+ * choice). */
+static int ai_play_call_k(int conversion, int allowKicks)
 {
     if (conversion)
         return rng_chance(50) ? 6 : 0;
     int fgd = gs_fg_distance(&gs);
     int behind = gs.score[USER] < gs.score[OPP];
-    if (gs.down == 4) {
+    if (gs.down == 4 && allowKicks) {
         int late = gs.quarter >= 4 && gs.clock < 150 && behind;
         if (fgd <= 50 && !(late && gs.score[OPP] - gs.score[USER] > 3))
             return 11;
@@ -479,27 +483,32 @@ static int ai_play_call(int conversion)
         return rng_chance(60) ? (rng_chance(50) ? 6 : 8) : rng_range(4);
     if (gs.down == 3 && gs.dist >= 7)
         return rng_chance(30) ? 2 : rng_range(4);
+    if (gs.down == 4)
+        return rng_chance(50) ? 0 : 1; /* going for it: high-percentage throws */
+    if (gs.ballOn >= 90)
+        return rng_chance(40) ? 6 : (rng_chance(50) ? 0 : 3);
     static const u8 mix[10] = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1};
     return mix[rng_range(10)];
 }
 
-/* returns play index, or -1 if the game was ended from the pause menu */
-static int play_call_menu(int conversion)
+static int ai_play_call(int conversion)
 {
-    int demoPick = s_demo ? ai_play_call(conversion) : -1;
-    int demoTimer = 0;
-    static int sel = 0;
+    return ai_play_call_k(conversion, 1);
+}
+
+/* Audible menu. Returns the new play, -10 if cancelled with B, or
+ * -code if the game was ended from the pause menu. Kicks are not
+ * available here: they are chosen on 4th down. */
+static int audible_menu(int conversion, int current)
+{
+    int sel = current;
     char buf[40];
-    u32 dis = 0;
+    u32 dis = (1u << 10) | (1u << 11);
     if (conversion)
-        dis |= (1u << 9) | (1u << 10) | (1u << 11);
-    int fgd = gs_fg_distance(&gs);
-    if (fgd > 70)
-        dis |= (1u << 11);
-    if (gs.ballOn > 60)
-        dis |= (1u << 10);
+        dis |= (1u << 9);
     if ((dis >> sel) & 1)
         sel = 0;
+    snd_play(SFX_WHISTLE);
     for (;;) {
         pnl_box(0, 11, 30, 8);
         txt_clear_rect(1, 12, 28, 6);
@@ -512,16 +521,13 @@ static int play_call_menu(int conversion)
                 txt_put(x - 1, y, '`', PAL_YELLOW);
             txt_print(x, y, playbook[i].name, pal);
         }
-        if (sel == 11)
-            fmt(buf, "%d YD FIELD GOAL TRY", fgd);
-        else
-            str_copy(buf, playbook[sel].desc, sizeof(buf));
-        down_text(s_banner);
+        str_copy(buf, playbook[sel].desc, sizeof(buf));
         draw_bottom(buf, PAL_CYAN);
         txt_clear_rect(0, 1, 30, 1);
         pnl_fill(0, 1, 30, 1, T_BLACK);
-        txt_print(1, 1, s_banner, PAL_WHITE);
-        txt_right(28, 1, "START:MENU", PAL_GRAY);
+        fmt(buf, "AUDIBLE (%d LEFT)", s_audibles - 1);
+        txt_print(1, 1, buf, PAL_ORANGE);
+        txt_right(28, 1, "B:CANCEL", PAL_GRAY);
         s_bannerTimer = 0;
         oam_begin();
         draw_actors(1);
@@ -533,28 +539,10 @@ static int play_call_menu(int conversion)
         if (key_repeat & (KEY_LEFT | KEY_RIGHT)) sel = (sel + 6) % 12;
         if (sel != old) {
             snd_play(SFX_MOVE);
-            if (playbook[sel].kind <= PK_KNEEL) {
+            if (!((dis >> sel) & 1)) {
                 setup_play(sel);
                 update_camera(1);
             }
-        }
-        if (s_demo) {
-            demo_check();
-            if (s_quit)
-                return -3;
-            /* walk the cursor to the AI's choice, then pick it */
-            if (++demoTimer % 6 == 0) {
-                if (sel != demoPick) {
-                    sel = (sel + 1) % NUM_PLAYS;
-                    if (playbook[sel].kind <= PK_KNEEL) {
-                        setup_play(sel);
-                        update_camera(1);
-                    }
-                } else if (demoTimer > 40) {
-                    break;
-                }
-            }
-            continue;
         }
         if (key_pressed & KEY_A) {
             if ((dis >> sel) & 1) {
@@ -563,6 +551,11 @@ static int play_call_menu(int conversion)
             }
             snd_play(SFX_OK);
             break;
+        }
+        if (key_pressed & KEY_B) {
+            snd_play(SFX_BACK);
+            clear_overlay(1, 19);
+            return -10;
         }
         if (key_pressed & KEY_START) {
             clear_overlay(1, 19);
@@ -573,6 +566,45 @@ static int play_call_menu(int conversion)
     }
     clear_overlay(1, 19);
     return sel;
+}
+
+/* 4th down: go for it, punt or kick? Returns 0 go, 10 punt, 11 FG,
+ * or -code from the pause menu. */
+static int fourth_down_menu(void)
+{
+    if (s_demo) {
+        int c = ai_play_call(0);
+        return (c == 10 || c == 11) ? c : 0;
+    }
+    char fg[24], hdr[32];
+    int fgd = gs_fg_distance(&gs);
+    fmt(fg, "FIELD GOAL %d YD", fgd);
+    const char *items[3] = {"GO FOR IT", "PUNT", fg};
+    u32 dis = 0;
+    if (gs.ballOn > 60)
+        dis |= 2;
+    if (fgd > 70)
+        dis |= 4;
+    int sel = (fgd <= 45) ? 2 : (gs.ballOn <= 60 && gs.dist > 2 ? 1 : 0);
+    for (;;) {
+        setup_play(sel == 1 ? 10 : 11);
+        update_camera(1);
+        oam_begin();
+        draw_actors(1);
+        draw_scoreboard(0);
+        clear_overlay(1, 19);
+        down_text(hdr);
+        pnl_box(5, 4, 20, 3);
+        txt_print(7, 5, hdr, PAL_YELLOW);
+        draw_bottom("4TH DOWN DECISION", PAL_CYAN);
+        int c = ui_menu(5, 9, 20, items, 3, sel, dis);
+        clear_overlay(1, 19);
+        if (c >= 0)
+            return c == 0 ? 0 : (c == 1 ? 10 : 11);
+        int r = pause_menu();
+        if (r)
+            return -r;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1038,16 +1070,13 @@ static int user_snap(void)
         }
     }
     PlayResult r;
-    int call;
-    for (;;) {
-        setup_play(0);
-        update_camera(1);
-        call = play_call_menu(conversion);
-        if (call < 0)
-            return -call;
-        memset(&r, 0, sizeof(r));
-        if (call == 10 || call == 11) {
-            do_kick(call == 10 ? KICK_PUNT : KICK_FG, &r);
+    memset(&r, 0, sizeof(r));
+    if (gs.down == 4 && !conversion) {
+        int k = fourth_down_menu();
+        if (k < 0)
+            return -k;
+        if (k == 10 || k == 11) {
+            do_kick(k == 10 ? KICK_PUNT : KICK_FG, &r);
             wait_frames(100, 0);
             u32 ev = gs_apply_play(&gs, &r);
             handle_clock_events(ev);
@@ -1055,33 +1084,65 @@ static int user_snap(void)
             s_spotY = FIELD_W / 2;
             return 0;
         }
-        setup_play(call);
-        update_camera(1);
-        /* pre-snap: A snaps, B goes back to the play call */
-        down_text(buf);
-        draw_bottom(buf, PAL_WHITE);
-        txt_right(28, 19, "A:SNAP B:BACK", PAL_CYAN);
-        int back = 0;
-        for (int f = 0;; f++) {
-            field_frame(1, 0);
-            if (s_quit)
-                return 3;
-            if (s_demo) {
-                if (f > 30)
-                    break;
+    }
+    /* the coach calls the play; the player may audible (3 per game) */
+    int call = ai_play_call_k(conversion, 0);
+    setup_play(call);
+    update_camera(1);
+    for (int f = 0;; f++) {
+        if (f == 0) {
+            clear_overlay(1, 19);
+            txt_clear_rect(0, 1, 30, 1);
+            pnl_fill(0, 1, 30, 1, T_BLACK);
+            txt_print(1, 1, playbook[call].name, PAL_YELLOW);
+            if (s_audibles > 0)
+                fmt(buf, "B:AUDIBLE x%d", s_audibles);
+            else
+                fmt(buf, "NO AUDIBLES");
+            txt_right(28, 1, buf, s_audibles ? PAL_ORANGE : PAL_GRAY);
+            down_text(buf);
+            draw_bottom(buf, PAL_WHITE);
+            txt_right(28, 19, "A:SNAP", PAL_CYAN);
+        }
+        field_frame(1, 0);
+        if (s_quit)
+            return 3;
+        if (s_demo) {
+            if (f > 40)
+                break;
+            continue;
+        }
+        if (key_pressed & KEY_A)
+            break;
+        if (key_pressed & KEY_START) {
+            clear_overlay(1, 19);
+            int q = pause_menu();
+            if (q)
+                return q;
+            f = -1;
+            continue;
+        }
+        if (key_pressed & KEY_B) {
+            if (s_audibles <= 0) {
+                snd_play(SFX_ERROR);
+                banner("NO AUDIBLES LEFT", PAL_RED, 60);
                 continue;
             }
-            if (key_pressed & KEY_A)
-                break;
-            if (key_pressed & KEY_B) {
-                back = 1;
-                snd_play(SFX_BACK);
-                break;
+            int a = audible_menu(conversion, call);
+            if (a <= -1 && a != -10)
+                return -a;
+            if (a >= 0) {
+                s_audibles--;
+                call = a;
+                banner("AUDIBLE!", PAL_ORANGE, 50);
             }
+            setup_play(call);
+            update_camera(1);
+            f = -1;
         }
-        if (!back)
-            break;
     }
+    txt_clear_rect(0, 1, 30, 1);
+    pnl_fill(0, 1, 30, 1, T_EMPTY);
     if (!conversion) {
         for (int i = 3; i > 0; i--)
             s_lastCalls[i] = s_lastCalls[i - 1];
@@ -1391,6 +1452,7 @@ void match_play(int home, int away, int user, int flags, MatchResult *out)
     s_flags = flags;
     s_quit = 0;
     s_demo = (flags & MF_DEMO) != 0;
+    s_audibles = 3;
     memset(s_lastCalls, 0, sizeof(s_lastCalls));
     refresh_lineups();
 
@@ -1472,10 +1534,9 @@ void show_controls(void)
 {
     static const char *const titles[] = {"PASSING", "RUNNING", "KICKING & DEFENSE", "RULES & CAREER"};
     static const char *const pages[] = {
-        "Pick a play, press A to snap. D-PAD moves the QB. L/R picks the target "
-        "(green arrow = open, red = covered).\n"
-        "HOLD A to aim: time slows, the D-PAD nudges the target and the meter "
-        "fills from LOB to BULLET. RELEASE A to throw. B throws it away.",
+        "The coach calls each play. B = AUDIBLE to pick your own (3 per game). "
+        "A snaps. D-PAD moves the QB, L/R picks the target (green = open). "
+        "HOLD A to aim, RELEASE to throw; B throws it away.",
 
         "Your runner always heads upfield. UP/DOWN steer, LEFT cuts back, "
         "RIGHT is full speed.\n"
