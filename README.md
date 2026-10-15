@@ -1,5 +1,8 @@
 # Retro Gridiron
 
+> **Game Boy Advance version:** this repository also contains **Pixel Pigskin**, a separate, original GBA football career game written in C. The ROM is at [`gba/build/RetroFootball.gba`](gba/build/RetroFootball.gba) and it runs in Delta on iPhone and iPad. See [`gba/README.md`](gba/README.md) for how to play, how to import it into Delta, and how to build it.
+
+
 A retro, pixel-art American football **career game** for the browser, inspired by the feel of classic arcade football. Create a player, go through the draft (or go undrafted), fight for snaps, throw with drag-to-aim, level up, sign contracts, win the Crown Bowl and build a Hall of Fame career across as many seasons as you like.
 
 It is a static web app (TypeScript + React + HTML Canvas 2D, built with Vite). There is no 3D engine, no backend, no account and no paid API. All art, logos, music and sound effects are generated in code, so there are no external assets to go missing. Saves live in the browser (IndexedDB). It runs in Safari on iPhone and iPad and in desktop browsers.

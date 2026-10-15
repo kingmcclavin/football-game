@@ -1,0 +1,39 @@
+# New career, then into the first game: play call, snap, aim, throw.
+wait 60
+press A 2
+wait 40
+press START
+wait 40
+press A
+wait 40
+press A
+wait 60
+press A
+wait 60
+shot @OUT@/smoke_01_hub.ppm
+press A
+wait 40
+shot @OUT@/smoke_02_pregame.ppm
+press A
+wait 120
+shot @OUT@/smoke_03_cointoss.ppm
+press A
+wait 120
+shot @OUT@/smoke_04_after_toss.ppm
+press A
+hold B 400
+press A
+wait 80
+shot @OUT@/smoke_05_playcall.ppm
+press A
+wait 30
+shot @OUT@/smoke_06_presnap.ppm
+press A
+wait 60
+hold A 25
+shot @OUT@/smoke_07_aiming.ppm
+hold NONE 40
+shot @OUT@/smoke_08_ball_in_air.ppm
+hold RIGHT 60
+wait 160
+shot @OUT@/smoke_09_result.ppm

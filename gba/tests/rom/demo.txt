@@ -1,0 +1,11 @@
+# Leave the title idle: attract mode plays a whole CPU-vs-CPU game.
+wait 1300
+shot @OUT@/demo_01.ppm
+wait 3000
+shot @OUT@/demo_02.ppm
+wait 3000
+shot @OUT@/demo_03.ppm
+wait 3000
+shot @OUT@/demo_04.ppm
+wait 3000
+shot @OUT@/demo_05.ppm

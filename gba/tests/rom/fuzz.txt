@@ -1,0 +1,8 @@
+# Random input for a long time; the runner fails on a hang.
+wait 60
+fuzz 40000 7
+shot @OUT@/fuzz_1.ppm
+fuzz 40000 99
+shot @OUT@/fuzz_2.ppm
+fuzz 40000 2024
+shot @OUT@/fuzz_3.ppm
