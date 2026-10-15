@@ -318,8 +318,10 @@ export interface Settings {
   keys: Record<string, string>;
   autoContinue: boolean;
   playSpeed: number;
-  /** QB passing: drag-to-aim (default) or receiver buttons. */
-  passScheme: 'drag' | 'buttons';
+  /** QB passing: slingshot (default), drag toward the target, or receiver buttons. */
+  passScheme: 'sling' | 'drag' | 'buttons';
+  /** Settings format revision (used to migrate defaults). */
+  settingsRev?: number;
   aimSensitivity: number;
   stickSensitivity: number;
   music: boolean;

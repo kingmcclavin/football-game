@@ -33,6 +33,8 @@ export interface AimState {
   x: number; // field coords
   y: number;
   target: number; // agent index or -1
+  /** Draw a lob arc from the QB to the landing spot (slingshot aiming). */
+  arc?: boolean;
 }
 
 interface AgentLook {
@@ -59,6 +61,9 @@ export class Renderer2D {
   camX = 0;
   dir: 1 | -1 = 1;
   camMode: CamMode = 'broadcast';
+  /** Arcade mode: the camera follows the ball only. */
+  arcade = false;
+  private controlledIdx = -1;
   private home: TeamDef;
   private fieldCache: HTMLCanvasElement | null = null;
   private looks: AgentLook[] = [];
@@ -79,7 +84,8 @@ export class Renderer2D {
   resize(cssW: number, cssH: number) {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     // integer up-scaling keeps pixels crisp
-    const target = this.camMode === 'wide' ? 200 : this.camMode === 'chase' ? 300 : 240;
+    // fewer virtual rows = bigger pixels and bigger players
+    const target = this.camMode === 'wide' ? 216 : this.camMode === 'chase' ? 150 : 180;
     this.scale = Math.max(1, Math.round((cssH * dpr) / target));
     this.H = Math.max(140, Math.ceil((cssH * dpr) / this.scale));
     this.W = Math.max(200, Math.ceil((cssW * dpr) / this.scale));
@@ -258,7 +264,7 @@ export class Renderer2D {
     const c = sim.carrier();
     let fx = sim.phase === 'pre' ? sim.los : c ? c.x : b.x;
     const u = sim.user;
-    if (u && c !== u && sim.kind === 'scrimmage' && sim.phase !== 'pre') fx = fx * 0.55 + u.x * 0.45;
+    if (!this.arcade && u && c !== u && sim.kind === 'scrimmage' && sim.phase !== 'pre') fx = fx * 0.55 + u.x * 0.45;
     if (b.state === 'air' && b.kind === 'pass') fx = (b.x + b.tx) / 2;
     if (sim.phase === 'pre' && sim.kind === 'scrimmage') fx = sim.los + 6;
     if (sim.kind === 'kickoff' && sim.phase === 'pre') fx = sim.los + 18;
@@ -288,8 +294,9 @@ export class Renderer2D {
     for (let i = 0; i < 80; i++) this.confetti.push({ x: Math.random() * this.W, y: -Math.random() * 40, vx: (Math.random() - 0.5) * 20, vy: 20 + Math.random() * 40, c: cols[i % cols.length] });
   }
 
-  update(sim: PlaySim, dt: number, opts: { userQbReads?: { idx: number; label: string; open: number }[]; showLanding: boolean; aim?: AimState | null }) {
+  update(sim: PlaySim, dt: number, opts: { userQbReads?: { idx: number; label: string; open: number }[]; showLanding: boolean; aim?: AimState | null; controlled?: number }) {
     this.t += dt;
+    this.controlledIdx = opts.controlled ?? -1;
     if (!this.fieldCache) this.buildField();
     const target = this.camTarget(sim);
     this.camX += (target - this.camX) * Math.min(1, dt * 4.5);
@@ -353,7 +360,26 @@ export class Renderer2D {
     }
     // aim line
     const aim = opts.aim;
-    if (aim && aim.active && sim.qb >= 0) {
+    if (aim && aim.active && aim.arc && sim.qb >= 0) {
+      const qb = sim.agents[sim.qb];
+      const ax = this.sx(qb.x), ay = this.sy(qb.y) - 10, bx = this.sx(aim.x), by = this.sy(aim.y);
+      const len = Math.hypot(bx - ax, by - ay);
+      const h = Math.min(60, len * 0.32) + 4;
+      const n = Math.max(8, Math.floor(len / 4));
+      const phase = Math.floor(this.t * 10) % 3;
+      for (let i = 0; i <= n; i++) {
+        const k = i / n;
+        g.fillStyle = (i + phase) % 3 === 0 ? '#ffd23f' : '#ffffff';
+        const px = Math.round(ax + (bx - ax) * k), py = Math.round(ay + (by - ay) * k - h * 4 * k * (1 - k) + 10 * k);
+        g.fillRect(px, py, 2, 2);
+      }
+      // landing spot: shadow + X
+      g.fillStyle = 'rgba(0,0,0,0.35)';
+      g.fillRect(Math.round(bx) - 4, Math.round(by) - 1, 9, 3);
+      g.fillStyle = aim.target >= 0 ? '#3ddc84' : '#ffd23f';
+      for (let i = -3; i <= 3; i++) { g.fillRect(Math.round(bx) + i, Math.round(by) + i, 1, 1); g.fillRect(Math.round(bx) + i, Math.round(by) - i, 1, 1); }
+      if (aim.target >= 0) { const a = sim.agents[aim.target]; this.ring(a.x, a.y, 1.6, '#3ddc84'); }
+    } else if (aim && aim.active && sim.qb >= 0) {
       const qb = sim.agents[sim.qb];
       this.dotted(qb.x, qb.y, aim.x, aim.y, '#ffffff');
       const x = Math.round(this.sx(aim.x)), y = Math.round(this.sy(aim.y));
@@ -402,7 +428,7 @@ export class Renderer2D {
     }
     const x = this.sx(a.x), y = this.sy(a.y) + sh;
     if (x < -20 || x > this.W + 20) return;
-    if (a.user) {
+    if (a.user || a.i === this.controlledIdx) {
       // blinking marker under the user's player
       const on = Math.floor(this.t * 4) % 2 === 0;
       this.ctx.fillStyle = on ? '#ffd23f' : '#ffffff';

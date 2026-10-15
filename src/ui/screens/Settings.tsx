@@ -60,7 +60,8 @@ export function SettingsScreen() {
           <div className="col">
             <span className="small muted">QB passing scheme</span>
             <div className="seg">
-              <button className={settings.passScheme !== 'buttons' ? 'on' : ''} onClick={() => set({ passScheme: 'drag' })}>Drag to aim</button>
+              <button className={settings.passScheme === 'sling' ? 'on' : ''} onClick={() => set({ passScheme: 'sling' })}>Slingshot</button>
+              <button className={settings.passScheme === 'drag' ? 'on' : ''} onClick={() => set({ passScheme: 'drag' })}>Drag to aim</button>
               <button className={settings.passScheme === 'buttons' ? 'on' : ''} onClick={() => set({ passScheme: 'buttons' })}>Receiver buttons</button>
             </div>
             <label className="field">Aim sensitivity: {Math.round((settings.aimSensitivity ?? 1) * 100)}%<input type="range" min={0.5} max={2} step={0.05} value={settings.aimSensitivity ?? 1} onChange={(e) => set({ aimSensitivity: Number(e.target.value) })} /></label>

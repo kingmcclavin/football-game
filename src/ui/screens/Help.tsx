@@ -28,8 +28,9 @@ export function Help() {
       </Section>
       <Section title="Tips">
         <ul className="small" style={{ lineHeight: 1.7, paddingLeft: 18 }}>
-          <li>QB: after the snap, drag from the right side toward a spot and release to throw; drag farther for more power. Tap a receiver for a quick pass. Number tags turn green when a receiver is open.</li>
-          <li>Ball carriers: time jukes and spins just before contact; protect the ball in traffic.</li>
+          <li>Offense (QB, RB, WR, TE careers): on your snaps you run the offense. Pick a call, snap, then press anywhere and pull back to aim the arc; release to throw. Time slows while you aim. Tap a receiver for a quick pass.</li>
+          <li>Whoever has the ball runs automatically: drag up/down to steer, swipe to juke, and use Spin, Stiff Arm and Dive. Your defense is simulated.</li>
+          <li>Defensive careers (LB, DB, DL) play their own defensive snaps with the joystick; kickers use the kick meter.</li>
           <li>Receivers: press CATCH as the ball arrives for an aggressive catch, especially when contested.</li>
           <li>Defenders: the yellow ring is your zone. Tackle when close; dive tackles cover more ground but can whiff.</li>
           <li>Trust 60+ unlocks the full playbook for quarterbacks; 70+ lets any player request plays. Some plays also need a higher career level.</li>

@@ -184,7 +184,7 @@ export const DEFAULT_KEYS: Record<string, string> = {
 
 export const defaultSettings = (): Settings => ({
   difficulty: 'pro',
-  quarterMinutes: 5,
+  quarterMinutes: 3,
   sound: true,
   volume: 0.7,
   graphics: 'medium',
@@ -195,7 +195,8 @@ export const defaultSettings = (): Settings => ({
   keys: { ...DEFAULT_KEYS },
   autoContinue: true,
   playSpeed: 1,
-  passScheme: 'drag',
+  passScheme: 'sling',
+  settingsRev: 2,
   aimSensitivity: 1,
   stickSensitivity: 1,
   music: true,
@@ -207,6 +208,11 @@ export function loadSettings(): Settings {
     const s = localStorage.getItem(SETTINGS_KEY);
     if (!s) return defaultSettings();
     const parsed = JSON.parse(s) as Partial<Settings>;
+    if ((parsed.settingsRev ?? 0) < 2) {
+      // Rev 2: arcade slingshot passing becomes the default.
+      parsed.passScheme = 'sling';
+      parsed.settingsRev = 2;
+    }
     return { ...defaultSettings(), ...parsed, keys: { ...DEFAULT_KEYS, ...(parsed.keys ?? {}) } };
   } catch {
     return defaultSettings();

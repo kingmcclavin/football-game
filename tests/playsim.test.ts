@@ -151,3 +151,87 @@ describe('PlaySim drag-to-aim passing', () => {
     expect(ints / att).toBeLessThan(0.2);
   });
 });
+
+describe('PlaySim arcade offense', () => {
+  const mk = (playId: string, defId: string, seed: number, userPid?: string) => {
+    const offPlay = OFF_PLAYS.find((p) => p.id === playId)!;
+    const defPlay = DEF_PLAYS.find((p) => p.id === defId)!;
+    const user = userPid ? { pid: userPid, mods: {} } : undefined;
+    return new PlaySim({
+      kind: 'scrimmage', los: 30, hashY: 26.67, toGo: 10, down: 1,
+      off: offenseLineup(league, off, offPlay, user), def: defenseLineup(league, def, defPlay),
+      offPlay, defPlay, userSide: 'off', oppDiff: DIFFICULTY.pro, seed, userPasses: true, controlCarrier: true,
+    });
+  };
+  const wr = () => off.depth.WR![0];
+
+  it('the AI quarterback never throws on its own', () => {
+    for (let i = 0; i < 12; i++) {
+      const sim = mk('gun_curls', 'b_c3', 300 + i, wr());
+      sim.snap();
+      let threw = false;
+      for (let s = 0; s < 60 * 6 && sim.phase !== 'done'; s++) {
+        sim.setInput({ mx: 0, my: 0, sprint: true });
+        sim.step(1 / 60);
+        if (sim.drainEvents().some((e) => e.type === 'throw')) threw = true;
+      }
+      expect(threw).toBe(false);
+    }
+  });
+
+  it('slingshot throws at the open receiver are accurate', () => {
+    const passPlays = OFF_PLAYS.filter((p) => p.type === 'pass' && !p.tags.includes('special') && p.formation !== 'goalline');
+    const defs = DEF_PLAYS.filter((d) => d.formation !== 'goalline');
+    let att = 0, cmp = 0, ints = 0;
+    for (let i = 0; i < 80; i++) {
+      const sim = mk(passPlays[i % passPlays.length].id, defs[i % defs.length].id, 7000 + i, wr());
+      sim.snap();
+      let thrown = false;
+      for (let s = 0; s < 60 * 12 && sim.phase !== 'done'; s++) {
+        sim.setInput({ mx: 0, my: 0, sprint: true });
+        if (!thrown && sim.t > 1.5 && sim.canThrow()) {
+          const qb = sim.agents[sim.qb];
+          const best = sim.receivers().map((r) => ({ r, o: sim.openness(qb, r) })).sort((a, b) => b.o - a.o)[0];
+          const T = Math.hypot(best.r.x - qb.x, best.r.y - qb.y) / 22 + 0.1;
+          const p = sim.predict(best.r, T);
+          thrown = sim.throwToPoint(p.x, p.y, Math.min(1, 0.3 + (Math.hypot(p.x - qb.x, p.y - qb.y) / sim.maxThrow(qb)) * 0.75), true);
+        }
+        sim.step(1 / 60);
+      }
+      const o = sim.outcome;
+      if (!o || !thrown || o.kind === 'sack') continue;
+      att++;
+      if (o.kind === 'pass') cmp++;
+      if (o.kind === 'interception') ints++;
+    }
+    console.log('slingshot', { att, cmp, ints });
+    expect(att).toBeGreaterThan(40);
+    expect(cmp / att).toBeGreaterThan(0.6);
+    expect(ints / att).toBeLessThan(0.15);
+  });
+
+  it('the user steers the ball carrier and gains yards on runs', () => {
+    let yds = 0, n = 0;
+    for (let i = 0; i < 30; i++) {
+      const sim = mk(i % 2 ? 'gun_iz' : 'sb_stretch', 'b_c3', 900 + i, wr());
+      sim.snap();
+      let controlled = false;
+      for (let s = 0; s < 60 * 12 && sim.phase !== 'done'; s++) {
+        const c = sim.controlled();
+        if (c) controlled = true;
+        // steer away from the nearest defender
+        let my = 0;
+        if (c) {
+          const near = sim.agents.filter((a) => a.side === 'def').sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
+          if (near && Math.abs(near.x - c.x) < 5) my = near.y > c.y ? -1 : 1;
+        }
+        sim.setInput({ mx: 0, my, sprint: true });
+        sim.step(1 / 60);
+      }
+      expect(controlled).toBe(true);
+      if (sim.outcome) { yds += sim.outcome.endX - 30; n++; }
+    }
+    console.log('arcade run ypc', (yds / n).toFixed(2));
+    expect(yds / n).toBeGreaterThan(1.5);
+  });
+});

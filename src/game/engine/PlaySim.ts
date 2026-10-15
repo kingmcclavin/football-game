@@ -159,6 +159,10 @@ export interface ScrimmageSetup {
   /** Mirror the play left/right. */
   flip?: boolean;
   drill?: boolean;
+  /** Arcade offense: the user throws every pass (the AI QB never does). */
+  userPasses?: boolean;
+  /** Arcade offense: the user steers whoever carries the ball (auto-run forward, steer up/down). */
+  controlCarrier?: boolean;
 }
 
 export interface KickSetup {
@@ -214,7 +218,7 @@ export class PlaySim {
   handedOff = false;
   qbCrossed = false;
   throwWind = -1; // time when wind-up ends
-  pending: { target: number; power: number; leadX: number; leadY: number; away?: boolean; pt?: { x: number; y: number } } | null = null;
+  pending: { target: number; power: number; leadX: number; leadY: number; away?: boolean; pt?: { x: number; y: number }; precise?: boolean } | null = null;
   airYards = 0;
   catchX = 0;
   turnover = false;
@@ -602,13 +606,14 @@ export class PlaySim {
    * User QB throw at a spot on the field (drag-to-aim). The pass is intended for
    * whichever route runner is projected closest to that spot when the ball arrives.
    */
-  throwToPoint(x: number, y: number, power: number) {
+  throwToPoint(x: number, y: number, power: number, precise = false) {
     const qb = this.agents[this.qb];
     if (!qb || !this.canThrow()) return false;
     const recs = this.receivers();
     if (!recs.length) return false;
-    this.pending = { target: recs[0].i, power, leadX: 0, leadY: 0, pt: { x, y } };
-    this.throwWind = this.t + 0.24 * mod(qb.mods, 'releaseTime', 1);
+    this.pending = { target: recs[0].i, power, leadX: 0, leadY: 0, pt: { x, y }, precise };
+    // Slingshot throws come out quickly so the ball lands where the arc showed.
+    this.throwWind = this.t + (precise ? 0.1 : 0.24) * mod(qb.mods, 'releaseTime', 1);
     qb.anim = 'throw';
     qb.animT = 0;
     return true;
@@ -623,6 +628,19 @@ export class PlaySim {
     qb.anim = 'throw';
     qb.animT = 0;
     return true;
+  }
+
+  private get arcade(): boolean {
+    return this.kind === 'scrimmage' && !!(this.setup as ScrimmageSetup).controlCarrier;
+  }
+
+  /** The agent the user's inputs drive right now. */
+  controlled(): SimAgent | null {
+    if (!this.arcade) return this.user;
+    const c = this.carrier();
+    if (!c || c.side !== 'off') return null;
+    if (c.i === this.qb && !this.qbCrossed && !this.passThrown && this.ball.state === 'held' && (c.task.k === 'qbPass' || c.task.k === 'qbHand')) return null;
+    return c;
   }
 
   canThrow(): boolean {
@@ -714,7 +732,7 @@ export class PlaySim {
   // User actions
   // =========================================================================
   private processActions() {
-    const u = this.user;
+    const u = this.controlled();
     while (this.actionQueue.length) {
       const act = this.actionQueue.shift()!;
       if (!u || u.down) continue;
@@ -947,7 +965,7 @@ export class PlaySim {
     }
   }
 
-  private releasePass(qb: SimAgent, p: { target: number; power: number; leadX: number; leadY: number; away?: boolean; pt?: { x: number; y: number } }) {
+  private releasePass(qb: SimAgent, p: { target: number; power: number; leadX: number; leadY: number; away?: boolean; pt?: { x: number; y: number }; precise?: boolean }) {
     const a = qb.p.attrs;
     const power = clamp(p.power, 0, 1);
     const thp = rating(a, 'thp', 60);
@@ -1016,7 +1034,9 @@ export class PlaySim {
     }
     const qbSpeed = Math.hypot(qb.vx, qb.vy);
     if (qbSpeed > 2.5) sigma *= 1 + (qbSpeed / 8) * (1 - rating(a, 'tor') / 120) * mod(qb.mods, 'runAcc', 1);
-    if (power > 0.92) sigma *= 1.08;
+    if (power > 0.92 && !p.precise) sigma *= 1.08;
+    // Slingshot throws go where the arc shows: only a small rating-based error remains.
+    if (p.precise) sigma *= 0.4;
     if (qb.user) sigma *= (this.setup as ScrimmageSetup).oppDiff.userAcc;
     const errPerp = this.rng.normal(0, sigma * airDist);
     const errAlong = this.rng.normal(0, sigma * airDist * 0.6);
@@ -1034,7 +1054,7 @@ export class PlaySim {
     this.emit({ type: 'throw', user: qb.user });
     // Receivers and defenders read the throw
     for (const d of this.agents) {
-      if (d.side !== 'def') { d.readT = this.t + 0.12; continue; }
+      if (d.side !== 'def') { d.readT = this.t + (this.arcade && d.i === r.i ? 0 : 0.12); continue; }
       const awr = rating(d.p.attrs, 'awr', 60);
       d.readT = this.t + (d.user ? 0 : d.diff.react * 0.6 + (100 - awr) * 0.003 + this.rng.range(0, 0.1));
     }
@@ -1117,9 +1137,13 @@ export class PlaySim {
         const reachZ = 2.6 + rating(a.p.attrs, 'jmp', 60) * 0.006 + (a.move === 'dive' && this.t - a.moveT < 0.6 ? -0.8 : 0);
         if (b.z > reachZ) continue;
         let radius = (a.side === 'off' ? (a.i === b.target ? 1.4 : 1.1) : 1.05) * mod(a.mods, 'catchRadius', 1);
+        // Arcade passes: the intended receiver stretches out for a ball placed near him.
+        if (this.arcade && a.side === 'off' && a.i === b.target) radius *= 1.35;
         if (a.move === 'dive' && this.t - a.moveT < 0.6) radius += 0.7;
         if (a.move === 'swat' && this.t - a.moveT < 0.6) radius += 0.35;
         const d = dist(a.x, a.y, b.x, b.y);
+        // Arcade: the intended receiver lets the ball come to him instead of lunging at the edge of his reach.
+        if (this.arcade && a.side === 'off' && a.i === b.target && d > 1.0 && b.z > 1.3 && d < radius) continue;
         if (d < radius) cands.push({ a, d });
       }
       if (cands.length) {
@@ -1187,11 +1211,13 @@ export class PlaySim {
       const c = 0.66 + (cit - 60) * 0.006 + mod(r.mods, 'contested', 0) + (r.user && this.t - this.catchPressed < 0.7 ? 0.12 : 0);
       p *= clamp(c, 0.3, 1);
     }
-    if (dr > 0.8) p -= (dr - 0.8) * 0.2;
+    const reach = this.arcade && b.target === r.i ? 1.3 : 0.8;
+    if (this.arcade && b.target === r.i) p += 0.08;
+    if (dr > reach) p -= (dr - reach) * 0.2;
     const bspeed = Math.hypot(b.vx, b.vy);
     if (bspeed > 22 && b.tArrive - b.t0 < 0.6) p -= 0.08;
     if (r.move === 'dive' && this.t - r.moveT < 0.6) p -= 0.1;
-    if (r.user) {
+    if (r.user && !this.arcade) {
       const timed = this.t - this.catchPressed < 0.7;
       p += (this.setup as ScrimmageSetup).oppDiff.catchHelp;
       if (!timed) p *= 0.72;
@@ -1572,7 +1598,18 @@ export class PlaySim {
     for (const a of this.agents) {
       if (a.down) { a.vx *= 0.85; a.vy *= 0.85; const sd = a as SimAgent & { dvx: number; dvy: number }; sd.dvx = 0; sd.dvy = 0; continue; }
       let dx = 0, dy = 0, speed = 0;
-      if (a.user && this.userControlled(a)) {
+      if (this.arcade) {
+        if (a === this.controlled() && !(a.task.k === 'runner' && this.t - this.carrierSince < 0.9 && Math.abs(this.input.my) < 0.15)) {
+          // Arcade running: always run for the end zone, steer up/down, pull back to slow down.
+          const fwd = this.fwdOf(a);
+          dx = fwd * (1 + Math.min(0, this.input.mx * fwd) * 0.85);
+          dy = this.input.my * 1.35;
+          speed = a.top * (a.protect ? 0.9 : 1);
+        } else {
+          const d = this.aiDesire(a, carrier);
+          dx = d.dx; dy = d.dy; speed = d.speed;
+        }
+      } else if (a.user && this.userControlled(a)) {
         const m = Math.min(1, Math.hypot(this.input.mx, this.input.my));
         const target = m * (this.input.sprint ? a.top : a.top * 0.86) * (a.protect ? 0.9 : 1);
         if (m > 0.05) { dx = this.input.mx / m; dy = this.input.my / m; }
@@ -1882,7 +1919,7 @@ export class PlaySim {
       if (dd < pressure) { pressure = dd; presser = d; }
     }
     const canThrow = this.canThrow();
-    if (canThrow && !qb.user) {
+    if (canThrow && !qb.user && !s.userPasses) {
       const recs = this.receivers();
       const awr = rating(qb.p.attrs, 'awr', 65);
       const readSpeed = 0.55 - awr * 0.0025;

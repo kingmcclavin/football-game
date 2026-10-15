@@ -32,6 +32,8 @@ export interface Playable {
   userPos: Pos;
   userSlotHint?: string;
   aimBegin(cx: number, cy: number): boolean;
+  coinToss?(call: 'heads' | 'tails'): boolean;
+  chooseOpening?(receive: boolean): void;
   aimMove(cx: number, cy: number): void;
   aimEnd(cx: number, cy: number): void;
   aimCancel(): void;
@@ -40,9 +42,9 @@ export interface Playable {
 const finePointer = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: fine)').matches;
 
 /** Drag-to-aim passing surface: drag from anywhere toward the target, release to throw. Tap a receiver for a quick pass. */
-function AimZone({ ctl, lefty }: { ctl: Playable; lefty: boolean }) {
+function AimZone({ ctl, lefty, full }: { ctl: Playable; lefty: boolean; full?: boolean }) {
   const pid = useRef<number | null>(null);
-  const style: React.CSSProperties = finePointer
+  const style: React.CSSProperties = finePointer || full
     ? { position: 'absolute', inset: 0, touchAction: 'none' }
     : { position: 'absolute', top: '12%', bottom: 0, [lefty ? 'left' : 'right']: 0, width: '54%', touchAction: 'none' };
   return (
@@ -127,7 +129,23 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
             </div>
             <h2>{ctl.title}</h2>
             <div className="small muted">{H.stadium}{H.dome ? ' (dome)' : ''}</div>
-            <button className="btn primary big block" onClick={() => ctl.start()}>{ctl.isDrill ? 'Start Drill' : 'Kick Off'}</button>
+            {!ctl.isDrill && ctl.coinToss && !hud.toss && (
+              <div className="col center">
+                <b className="warn">Coin toss: call it!</b>
+                <div className="row" style={{ justifyContent: 'center' }}>
+                  <button className="btn primary big" onClick={() => ctl.coinToss!('heads')}>Heads</button>
+                  <button className="btn primary big" onClick={() => ctl.coinToss!('tails')}>Tails</button>
+                </div>
+              </div>
+            )}
+            {!ctl.isDrill && hud.toss && <div className="small">It's <b className="warn">{hud.toss.result.toUpperCase()}</b>. {hud.toss.won ? 'You won the toss!' : `${TEAMS[hud.userTeam === hud.home ? hud.away : hud.home].name} won the toss and will receive.`}</div>}
+            {!ctl.isDrill && hud.toss?.won && (
+              <div className="row" style={{ justifyContent: 'center' }}>
+                <button className="btn primary big" onClick={() => ctl.chooseOpening!(true)}>Receive</button>
+                <button className="btn big" onClick={() => ctl.chooseOpening!(false)}>Kick</button>
+              </div>
+            )}
+            {(ctl.isDrill || !ctl.coinToss || (hud.toss && !hud.toss.won)) && <button className="btn primary big block" onClick={() => ctl.start()}>{ctl.isDrill ? 'Start Drill' : 'Kick Off'}</button>}
             {!ctl.isDrill && <button className="btn block" onClick={() => ctl.simToEnd()}>Simulate Game</button>}
             <button className="btn ghost block" onClick={() => setShowGuide(true)}>Controls Guide</button>
           </div>
@@ -145,7 +163,7 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
                 <button className="btn primary" onClick={() => ctl.choosePlay(hud.playcall!.suggestion)}>Coach's Call</button>
               </div>
             </div>
-            {formations.length > 1 && (
+            {formations.length > 1 && !hud.playcall.labels && (
               <div className="tabs" style={{ marginBottom: 0 }}>
                 <button className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
                 {formations.map((f) => <button key={f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{FORMATIONS[f]?.name ?? f}</button>)}
@@ -157,8 +175,8 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
                 return (
                   <button key={o.id} className={`playcard ${o.id === hud.playcall!.suggestion ? 'sug' : ''}`} onClick={() => ctl.choosePlay(o.id)}>
                     {off ? <PlayDiagram play={o as OffPlay} highlight={ctl.userSlotHint} /> : <PlayDiagram def={o as DefPlay} />}
-                    <div className="nm">{o.name}</div>
-                    <div className="tiny muted">{off ? FORMATIONS[(o as OffPlay).formation].name : (o as DefPlay).desc.slice(0, 40)}</div>
+                    <div className="nm">{hud.playcall!.labels?.[o.id] ?? o.name}</div>
+                    <div className="tiny muted">{hud.playcall!.labels ? o.name : off ? FORMATIONS[(o as OffPlay).formation].name : (o as DefPlay).desc.slice(0, 40)}</div>
                   </button>
                 );
               })}
@@ -198,9 +216,10 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
       {/* Live / pre-snap controls */}
       {(hud.mode === 'live' || hud.mode === 'presnap') && (
         <>
-          {hud.mode === 'live' && drag && hud.receivers.length > 0 && <AimZone ctl={ctl} lefty={lefty} />}
-          {hud.mode === 'live' && hud.userOnField && !(finePointer && drag && hud.receivers.length > 0) && <Joystick lefty={lefty} scale={scale} />}
-          {hud.mode === 'live' && drag && hud.canThrow && <div className="aimhint">Drag toward a receiver &amp; release to throw · Tap a receiver for a quick pass</div>}
+          {hud.mode === 'live' && (hud.arcade || (drag && hud.receivers.length > 0)) && <AimZone ctl={ctl} lefty={lefty} full={hud.arcade} />}
+          {hud.mode === 'live' && hud.userOnField && !hud.arcade && !(finePointer && drag && hud.receivers.length > 0) && <Joystick lefty={lefty} scale={scale} />}
+          {hud.mode === 'live' && drag && hud.canThrow && <div className="aimhint">{settings.passScheme === 'sling' ? 'Pull back & release to throw · Tap a receiver for a quick pass' : 'Drag toward a receiver & release to throw · Tap a receiver for a quick pass'}</div>}
+          {hud.mode === 'live' && hud.arcade && !hud.canThrow && hud.buttons.some((b) => b.id === 'juke') && <div className="aimhint">Drag up / down to steer · Swipe to juke</div>}
           {hud.mode === 'presnap' && (
             <div className="assign"><b>{hud.playName || 'Ready'}{hud.playClock > 0 ? ` • Play clock ${hud.playClock}` : ''}</b>{hud.assignment}</div>
           )}
@@ -224,7 +243,7 @@ export function GameHud({ ctl, settings, onQuit }: { ctl: Playable; settings: Se
           ) : (
             <div className={`actions ${lefty ? 'lefty' : ''}`}>
               {hud.buttons.map((b) => <ActionButton key={b.id} label={b.label} keyHint={b.key} big={b.big} scale={scale} onPress={() => press(b.id)} />)}
-              {hud.mode === 'live' && hud.userOnField && <SprintButton scale={scale} />}
+              {hud.mode === 'live' && hud.userOnField && !hud.arcade && <SprintButton scale={scale} />}
             </div>
           )}
           {hud.mode === 'live' && !hud.userOnField && <div className="assign">Watching the play…</div>}

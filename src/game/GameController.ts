@@ -56,7 +56,11 @@ export interface HudState {
   banner: { title: string; sub: string; tone: 'good' | 'bad' | 'neutral' | 'score' } | null;
   ticker: string[];
   kick: { kind: 'fg' | 'xp' | 'punt' | 'kickoff'; distance?: number } | null;
-  playcall: { side: 'off' | 'def'; suggestion: string; options: (OffPlay | DefPlay)[]; canChoose: boolean; reason: string } | null;
+  playcall: { side: 'off' | 'def'; suggestion: string; options: (OffPlay | DefPlay)[]; canChoose: boolean; reason: string; labels?: Record<string, string> } | null;
+  /** Arcade offense: the user throws every pass and steers the ball carrier. */
+  arcade: boolean;
+  /** Opening coin toss state (pregame). */
+  toss: { won: boolean; call: 'heads' | 'tails'; result: 'heads' | 'tails' } | null;
   grade: number;
   snaps: number;
   final: boolean;
@@ -102,6 +106,12 @@ export class GameController {
   /** Drag-to-aim passing state (field coordinates). */
   aim: AimState = { active: false, x: 0, y: 0, target: -1 };
   protected aimFrom: { cx: number; cy: number; t: number } | null = null;
+  /** Arcade running: drag to steer the ball carrier. */
+  protected steerFrom: { cx: number; cy: number; t: number } | null = null;
+  protected steer = { mx: 0, my: 0 };
+  /** The current live play uses arcade offense controls. */
+  protected arcadeLive = false;
+  protected toss: HudState['toss'] = null;
   protected unsub: (() => void)[] = [];
   protected autoT = -1;
   protected snapDelay = -1;
@@ -146,7 +156,7 @@ export class GameController {
       clock: fmtClock(g.clock), down: downLabel(g), ballOn: g.phase === 'play' ? fieldPosLabel(g) : '', poss: possTeam(g), timeouts: [g.timeouts[0], g.timeouts[1]],
       userTeam: this.user.teamId, userOnField: !!this.sim?.user, userSide: this.sim?.user ? this.sim.user.side : null,
       playName: this.playOff?.name ?? this.playDef?.name ?? '', assignment: '', receivers: [], canThrow: false, buttons: [], banner: null, ticker: [], kick: null,
-      playcall: null, grade: this.liveGrade(), snaps: this.userSnaps, final: g.over, recap: null, charge: 0, camMode: this.scene?.camMode ?? (this.settings.camera as CamMode),
+      playcall: null, arcade: this.arcadeLive, toss: this.toss, grade: this.liveGrade(), snaps: this.userSnaps, final: g.over, recap: null, charge: 0, camMode: this.scene?.camMode ?? (this.settings.camera as CamMode),
       isQB: this.user.pos === 'QB', lastPlay: g.log[g.log.length - 1]?.text ?? '', twoMinute: (g.quarter === 2 || g.quarter === 4) && g.clock <= 120,
       matchup: `${TEAMS[g.away].abbr} @ ${TEAMS[g.home].abbr}`,
       playClock: Math.ceil(this.playClock), canAudible: this.canAudible(), flip: this.flip, summaryTitle: this.summaryTitle,
@@ -231,6 +241,31 @@ export class GameController {
     audio.unlock();
     audio.whistle();
     this.advance();
+  }
+
+  /** Opening coin toss. Returns whether the user's call was right. */
+  coinToss(call: 'heads' | 'tails'): boolean {
+    const result: 'heads' | 'tails' = this.rng.chance(0.5) ? 'heads' : 'tails';
+    const won = result === call;
+    this.toss = { won, call, result };
+    audio.click();
+    // The opponent always elects to receive when it wins the toss.
+    if (!won) this.setOpeningKicker(this.userSideIdx);
+    this.emitHud();
+    return won;
+  }
+
+  /** After winning the toss: receive (true) or kick (false). */
+  chooseOpening(receive: boolean) {
+    this.setOpeningKicker(receive ? ((1 - this.userSideIdx) as 0 | 1) : this.userSideIdx);
+    this.start();
+  }
+
+  protected setOpeningKicker(side: 0 | 1) {
+    const g = this.g;
+    g.openingKicker = side;
+    g.poss = side;
+    g.drive.team = side === 0 ? 1 : 0;
   }
 
   /** Simulate the rest of the game (quick sim, user's stats still count). */
@@ -379,7 +414,11 @@ export class GameController {
       this.playOff = step.play;
       this.playDef = step.defPlay;
       const trust = this.career.trust;
-      if (userOff && u.pos === 'QB') {
+      if (userOff && this.arcadeEligible()) {
+        this.mode = 'playcall';
+        const { options, labels } = this.arcadeCalls(step.play);
+        this.hud.playcall = { side: 'off', suggestion: step.play.id, options, canChoose: true, reason: `${downLabel(g)} at ${fieldPosLabel(g)} • pick a call`, labels };
+      } else if (userOff && u.pos === 'QB') {
         this.mode = 'playcall';
         const pool = this.qbPlayPool(trust);
         this.hud.playcall = { side: 'off', suggestion: step.play.id, options: pool, canChoose: true, reason: trust >= 60 ? 'Full playbook access' : `Coach trust ${Math.round(trust)}: limited to the coordinator's call sheet` };
@@ -428,6 +467,40 @@ export class GameController {
       set.set(p.id, p);
     }
     return Array.from(set.values());
+  }
+
+  /** Offensive careers play every one of their offensive snaps arcade-style. */
+  protected arcadeEligible(): boolean {
+    return !this.isDrill && ['QB', 'RB', 'WR', 'TE'].includes(this.user.pos);
+  }
+
+  /** A short arcade call sheet: one play per call type, picked from the unlocked playbook. */
+  protected arcadeCalls(coach: OffPlay): { options: OffPlay[]; labels: Record<string, string> } {
+    const g = this.g;
+    const u = this.user;
+    const goal = g.ballOn >= 90 || g.toGo <= 1;
+    const style = (p: OffPlay) => { const a = p.carrier ? p.assign[p.carrier] : undefined; return a && a.kind === 'run' ? a.style : ''; };
+    const base = OFF_PLAYS.filter((p) => formationUsesUser(u.pos, p) && this.unlocked(p) && (!p.tags.includes('special') || g.clock < 30) && (p.formation !== 'goalline' || goal));
+    const cats: [string, (p: OffPlay) => boolean][] = [
+      ['Quick Pass', (p) => p.type === 'pass' && p.tags.includes('short') && !p.tags.includes('screen') && !p.tags.includes('pa')],
+      ['Deep Shot', (p) => p.type === 'pass' && p.tags.includes('deep') && !p.tags.includes('pa')],
+      ['Play Action', (p) => p.tags.includes('pa')],
+      ['Screen', (p) => p.tags.includes('screen')],
+      ['Run Inside', (p) => p.type === 'run' && style(p) !== 'outside'],
+      ['Run Outside', (p) => p.type === 'run' && style(p) === 'outside'],
+    ];
+    if (g.clock < 30 && g.quarter % 2 === 0) cats.push(['Hail Mary', (p) => p.tags.includes('special')]);
+    const options: OffPlay[] = [];
+    const labels: Record<string, string> = {};
+    for (const [label, f] of cats) {
+      const pool = base.filter((p) => f(p) && !options.includes(p));
+      if (!pool.length) continue;
+      const p = goal ? (pool.find((x) => x.formation === 'goalline') ?? this.rng.pick(pool)) : this.rng.pick(pool);
+      options.push(p);
+      labels[p.id] = label;
+    }
+    if (!options.includes(coach)) { options.unshift(coach); labels[coach.id] = "Coach's Call"; }
+    return { options, labels };
   }
 
   /** Plays unlock for the user's own calls as their career level rises. */
@@ -493,13 +566,14 @@ export class GameController {
     this.mode = 'presnap';
     const userOff = this.g.poss === this.userSideIdx;
     this.snapDelay = -1;
-    this.playClock = userOff && this.user.pos === 'QB' && !this.isDrill ? 25 : 0;
+    this.playClock = userOff && this.user.pos === 'QB' && !this.isDrill && !this.arcadeLive ? 25 : 0;
     this.readText = this.defenseRead();
     this.updateScoreboard();
     this.emitHud();
   }
 
   protected dirFor(offSide: 0 | 1): 1 | -1 {
+    if (!this.isDrill) return offSide === this.userSideIdx ? 1 : -1;
     const homeDir: 1 | -1 = this.g.quarter > 4 ? 1 : this.g.quarter % 2 === 1 ? 1 : -1;
     return offSide === 0 ? homeDir : (homeDir === 1 ? -1 : 1);
   }
@@ -520,8 +594,12 @@ export class GameController {
       def: defenseLineup(this.league, defTeam, defPlay, userOff ? undefined : uof, true),
       offPlay: play, defPlay, userSide: userOff ? 'off' : 'def', oppDiff: DIFFICULTY[this.career.difficulty], seed: this.rng.int(1, 1e9),
       twoPoint, penalties: !twoPoint, featureUser: 0.5 + this.career.trust / 200, flip: this.flip,
+      userPasses: userOff && this.arcadeEligible(), controlCarrier: userOff && this.arcadeEligible(),
     };
+    this.arcadeLive = !!setup.controlCarrier;
+    this.aimCancel();
     this.sim = new PlaySim(setup);
+    if (this.scene) this.scene.arcade = this.arcadeLive;
     this.scene?.setPlay(this.sim, {
       offTeam: offTeam.id, defTeam: defTeam.id, homeTeam: this.game.home, dir: this.dirFor(g.poss), userAppearance: this.career.appearance,
       userUniform: this.career.uniform === 'alt' ? 'alt' : 'home', showRoutes: true, qbView: userOff && this.user.pos === 'QB',
@@ -636,12 +714,18 @@ export class GameController {
 
   /** True when the user is the quarterback and can throw right now. */
   canAim(): boolean {
-    return !!this.sim && this.mode === 'live' && !!this.sim.user && this.sim.user.slot === 'QB' && this.sim.canThrow();
+    return !!this.sim && this.mode === 'live' && this.sim.canThrow() && (this.arcadeLive || (!!this.sim.user && this.sim.user.slot === 'QB'));
   }
 
   /** Drag-to-aim: press anywhere on the field. Client (CSS) coordinates. */
   aimBegin(cx: number, cy: number): boolean {
-    if (!this.canAim()) return false;
+    if (!this.canAim()) {
+      if (this.arcadeLive && this.mode === 'live' && this.sim?.controlled()) {
+        this.steerFrom = { cx, cy, t: performance.now() };
+        return true;
+      }
+      return false;
+    }
     this.aimFrom = { cx, cy, t: performance.now() };
     this.aim = { active: false, x: 0, y: 0, target: -1 };
     return true;
@@ -649,31 +733,60 @@ export class GameController {
 
   aimMove(cx: number, cy: number) {
     const sim = this.sim;
+    if (this.steerFrom && this.scene) {
+      const d = this.scene.deltaToField(cx - this.steerFrom.cx, cy - this.steerFrom.cy);
+      const sens = this.settings.stickSensitivity || 1;
+      this.steer = { mx: clamp((d.dx / 7) * sens, -1, 1), my: clamp((d.dy / 5) * sens, -1, 1) };
+      return;
+    }
     if (!this.aimFrom || !sim || !this.scene) return;
     if (!this.canAim()) { this.aimCancel(); return; }
     const dx = cx - this.aimFrom.cx, dy = cy - this.aimFrom.cy;
     if (Math.hypot(dx, dy) < 10) { this.aim.active = false; return; }
     const qb = sim.agents[sim.qb];
-    const k = 2.2 * (this.settings.aimSensitivity || 1);
+    const sling = this.settings.passScheme === 'sling';
+    const k = (sling ? 1.7 : 2.2) * (this.settings.aimSensitivity || 1);
     const d = this.scene.deltaToField(dx * k, dy * k);
-    let ax = qb.x + d.dx, ay = qb.y + d.dy;
+    // Slingshot: pull back away from the target. Drag scheme: drag toward it.
+    let ax = sling ? qb.x - d.dx : qb.x + d.dx, ay = sling ? qb.y - d.dy : qb.y + d.dy;
     const maxD = sim.maxThrow(qb);
     const len = Math.hypot(ax - qb.x, ay - qb.y);
     if (len > maxD) { ax = qb.x + ((ax - qb.x) / len) * maxD; ay = qb.y + ((ay - qb.y) / len) * maxD; }
     ay = clamp(ay, -1, 53.333 + 1);
     // Highlight the receiver projected nearest to the aim point.
-    const T = Math.hypot(ax - qb.x, ay - qb.y) / 24;
+    const T = Math.hypot(ax - qb.x, ay - qb.y) / 24 + (sling ? 0.1 : 0.24);
     let best = -1, bd = 4.5;
     for (const r of sim.receivers()) {
       const p = sim.predict(r, T);
       const dd = Math.hypot(p.x - ax, p.y - ay);
       if (dd < bd) { bd = dd; best = r.i; }
     }
-    this.aim = { active: true, x: ax, y: ay, target: best };
+    if (sling && best >= 0) {
+      // light magnet toward the receiver's projected spot
+      const p = sim.predict(sim.agents[best], T);
+      const pull = clamp(1 - bd / 4.5, 0, 1) * 0.55;
+      ax += (p.x - ax) * pull;
+      ay += (p.y - ay) * pull;
+    }
+    this.aim = { active: true, x: ax, y: ay, target: best, arc: sling };
   }
 
   aimEnd(cx: number, cy: number) {
     const sim = this.sim;
+    if (this.steerFrom) {
+      const from = this.steerFrom;
+      this.steerFrom = null;
+      const dt = performance.now() - from.t;
+      const dx = cx - from.cx, dy = cy - from.cy;
+      if (sim && this.scene && dt < 260 && Math.abs(dy) > 28 && Math.abs(dy) > Math.abs(dx)) {
+        // quick swipe up/down = juke that way
+        const d = this.scene.deltaToField(0, dy);
+        sim.setInput({ mx: 0, my: Math.sign(d.dy), sprint: true });
+        sim.action('juke');
+      }
+      this.steer = { mx: 0, my: 0 };
+      return;
+    }
     const from = this.aimFrom;
     this.aimFrom = null;
     if (!from || !sim || !this.scene || !this.canAim()) { this.aimCancel(); return; }
@@ -696,18 +809,24 @@ export class GameController {
       const qb = sim.agents[sim.qb];
       const air = Math.hypot(this.aim.x - qb.x, this.aim.y - qb.y);
       const power = clamp(0.3 + (air / sim.maxThrow(qb)) * 0.75, 0.3, 1);
-      sim.throwToPoint(this.aim.x, this.aim.y, power);
+      sim.throwToPoint(this.aim.x, this.aim.y, power, this.aim.arc);
     }
     this.aimCancel();
   }
 
   aimCancel() {
     this.aimFrom = null;
+    this.steerFrom = null;
+    this.steer = { mx: 0, my: 0 };
     this.aim = { active: false, x: 0, y: 0, target: -1 };
   }
 
   protected context(): 'qb' | 'carrier' | 'receiver' | 'defender' | 'blocker' | 'returner' | 'kicker' | 'none' {
     const sim = this.sim;
+    if (sim && this.arcadeLive && sim.kind === 'scrimmage') {
+      if (sim.canThrow()) return 'qb';
+      return sim.controlled() ? 'carrier' : 'none';
+    }
     if (!sim || !sim.user) return 'none';
     const u = sim.user;
     const c = sim.carrier();
@@ -737,8 +856,10 @@ export class GameController {
     const k = (code?: string) => (code ? code.replace('Key', '').replace('Digit', '').replace('ShiftLeft', 'Shift') : undefined);
     const km = this.settings.keys;
     if (this.mode === 'presnap') {
-      buttons.push({ id: 'snap', label: sim.kind === 'scrimmage' ? (u?.slot === 'QB' ? 'SNAP' : 'READY') : 'READY', key: 'Space', big: true });
-      out.assignment = this.assignmentText();
+      buttons.push({ id: 'snap', label: sim.kind === 'scrimmage' ? (u?.slot === 'QB' || this.arcadeLive ? 'SNAP' : 'READY') : 'READY', key: 'Space', big: true });
+      out.assignment = this.arcadeLive
+        ? (this.playOff?.type === 'run' ? 'Run play: the carrier runs for you. Drag up/down to steer, swipe to juke, tap Dive near the line.' : 'After the snap: pull back anywhere, aim the arc, release to throw. Time slows while you aim.')
+        : this.assignmentText();
     } else if (u) {
       const ctx = this.context();
       if (ctx === 'qb') {
@@ -747,6 +868,8 @@ export class GameController {
         out.receivers = recs.map((r, i) => ({ idx: r.i, label: String(i + 1), name: `${r.p.name}`, open: Math.round(sim.openness(qb, r) * 10) / 10 }));
         out.canThrow = sim.canThrow();
         buttons.push({ id: 'throwAway', label: 'Throw Away', key: k(km.throwAway) });
+      } else if (ctx === 'carrier' && this.arcadeLive) {
+        buttons.push({ id: 'juke', label: 'Juke', key: k(km.juke) }, { id: 'spin', label: 'Spin', key: k(km.spin) }, { id: 'stiff', label: 'Stiff Arm', key: k(km.stiff) }, { id: 'dive', label: 'Dive', key: k(km.dive), big: true });
       } else if (ctx === 'carrier') {
         buttons.push({ id: 'juke', label: 'Juke', key: k(km.juke) }, { id: 'spin', label: 'Spin', key: k(km.spin) }, { id: 'stiff', label: 'Stiff Arm', key: k(km.stiff) }, { id: 'dive', label: 'Dive', key: k(km.dive) }, { id: 'protect', label: 'Protect', key: k(km.protect) });
         if (u.slot === 'QB' && u.x > sim.los) buttons.push({ id: 'slide', label: 'Slide' });
@@ -764,6 +887,7 @@ export class GameController {
       }
     }
     out.buttons = buttons;
+    out.arcade = this.arcadeLive;
     out.userOnField = !!u;
     out.userSide = u ? u.side : null;
     out.charge = this.charge ? clamp(0.25 + (performance.now() - this.charge.t0) / 600, 0, 1) : 0;
@@ -828,8 +952,13 @@ export class GameController {
     }
     if (sim && this.mode === 'live') {
       const mv = this.fieldMove();
-      sim.setInput({ mx: mv.x, my: mv.y, sprint: mv.sprint });
-      this.acc += dt * (this.settings.playSpeed || 1);
+      if (this.arcadeLive) {
+        const steering = !!this.steerFrom;
+        sim.setInput({ mx: steering ? this.steer.mx : mv.x, my: steering ? this.steer.my : mv.y, sprint: true });
+      } else sim.setInput({ mx: mv.x, my: mv.y, sprint: mv.sprint });
+      // Time slows down while the quarterback is lining up a slingshot throw.
+      const slowmo = this.aimFrom && this.settings.passScheme === 'sling' && sim.canThrow() ? 0.3 : 1;
+      this.acc += dt * (this.settings.playSpeed || 1) * slowmo;
       const h = 1 / 60;
       let n = 0;
       while (this.acc >= h && n++ < 6) {
@@ -851,8 +980,8 @@ export class GameController {
       } else if (this.mode === 'presnap' && sim.user && sim.user.slot === 'QB') {
         reads = sim.receivers().map((r, i) => ({ idx: r.i, label: String(i + 1), open: 2 }));
       }
-      const showLanding = !!sim.user && (sim.ball.target === sim.user.i || sim.user.side === 'def' || sim.user.task.k === 'returner');
-      this.scene.update(sim, dt, { userQbReads: reads, showLanding, aim: this.aimFrom ? this.aim : null });
+      const showLanding = (this.arcadeLive && sim.ball.kind === 'pass') || !!sim.user && (sim.ball.target === sim.user.i || sim.user.side === 'def' || sim.user.task.k === 'returner');
+      this.scene.update(sim, dt, { userQbReads: reads, showLanding, aim: this.aimFrom ? this.aim : null, controlled: this.arcadeLive ? sim.controlled()?.i ?? -1 : -1 });
       this.scene.render();
     }
     this.hudT += dt;

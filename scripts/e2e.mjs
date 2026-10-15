@@ -17,7 +17,8 @@ await page.getByText('Quick Start').click();
 await page.locator('button.option').filter({ has: page.locator('b', { hasText: /^RB$/ }) }).first().click();
 await page.getByText('Start Career').click();
 await page.getByText('Play Game').click();
-await page.getByText('Kick Off').click();
+await page.getByText('Heads').click();
+if (await page.locator('button', { hasText: /^Receive$/ }).count()) await page.locator('button', { hasText: /^Receive$/ }).click(); else await page.locator('button', { hasText: /^Kick Off$/ }).click();
 const t0 = Date.now();
 let snaps = 0;
 while (Date.now() - t0 < 240000) {
@@ -54,7 +55,8 @@ await qb.getByText('Start Career').click();
 await qb.getByText('Play Game').click();
 const sawTutorial = await qb.locator('.tutorial').isVisible();
 await qb.locator('.tutorial button:has-text("Skip")').click();
-await qb.getByText('Kick Off').click();
+await qb.getByText('Tails').click();
+if (await qb.locator('button', { hasText: /^Receive$/ }).count()) await qb.locator('button', { hasText: /^Receive$/ }).click(); else await qb.locator('button', { hasText: /^Kick Off$/ }).click();
 let throws = 0;
 const t1 = Date.now();
 while (Date.now() - t1 < 120000 && throws < 3) {
@@ -71,7 +73,7 @@ while (Date.now() - t1 < 120000 && throws < 3) {
   if (await qb.locator('.aimhint').count()) {
     await qb.waitForTimeout(900);
     if (await qb.locator('.aimhint').count()) {
-      await qb.mouse.move(560, 200); await qb.mouse.down(); await qb.mouse.move(700, 160, { steps: 6 }); await qb.mouse.up();
+      await qb.mouse.move(560, 200); await qb.mouse.down(); await qb.mouse.move(430, 240, { steps: 6 }); await qb.waitForTimeout(150); await qb.mouse.up();
       throws++;
     }
   }

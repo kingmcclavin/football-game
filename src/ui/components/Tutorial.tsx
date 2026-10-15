@@ -24,22 +24,13 @@ const COMMON_END: Step = {
 
 export const TUTORIALS: Record<TutorialKey, Step[]> = {
   QB: [
-    { title: 'Call the play', text: ['Pick a play from the call sheet or take the Coach\'s Call.', 'More plays unlock as your career level rises.', 'Press SNAP (or Space) when you are ready.'] },
-    { title: 'Move in the pocket', text: ['Touch and drag on the LEFT side of the screen to move (WASD / arrows on a keyboard).', 'Step up to avoid edge rushers. Cross the line and you become a runner.'] },
-    { title: 'Drag to aim, release to throw', text: ['Press anywhere on the RIGHT side (or anywhere with a mouse) and drag toward where you want the ball.', 'A dotted line shows the throw. Drag farther for a longer, harder pass.', 'A green ring means a receiver is projected to arrive at that spot. Let go to throw.'] },
-    { title: 'Quick passes & reads', text: ['Tap a receiver for a quick touch pass. Number tags show separation: green open, yellow tight, red covered.', 'Defenders can deflect or intercept balls thrown into coverage. Under pressure your accuracy drops.', 'Throw Away (T) avoids a sack. Keys 1-5 also throw to receivers.'] },
+    { title: 'Win the toss, call the play', text: ['Call heads or tails before kickoff. Win it and choose to receive or kick.', 'Before each snap pick a call: Quick Pass, Deep Shot, Play Action, Screen, Run Inside or Run Outside (or the Coach\'s Call). More plays unlock as you level up.', 'Press SNAP (or Space).'] },
+    { title: 'Slingshot passing', text: ['After the snap, press anywhere and PULL BACK, away from where you want the ball to go.', 'An arc shows the throw and an X marks where it lands. Pull farther to throw farther. Time slows down while you aim.', 'Release to throw. The ball goes where the arc shows; lead your receiver into open grass. A green ring means a receiver will get there.'] },
+    { title: 'Run after the catch', text: ['Whoever has the ball runs for the end zone automatically. Drag up or down anywhere to steer (arrow keys work too).', 'Swipe up or down quickly to juke. Tap SPIN, STIFF ARM or DIVE when a tackler closes in.', 'Your defense plays itself: their drives are simulated and summarized.'] },
     COMMON_END,
   ],
-  RB: [
-    { title: 'Take the handoff', text: ['The handoff is automatic after the snap. Follow the gold path to the hole.', 'Move with the left-side joystick (WASD / arrows). Push it fully or hold SPRINT to run faster.'] },
-    { title: 'Make them miss', text: ['JUKE (J) and SPIN (K) beat a tackler right before contact. STIFF ARM (L) shoves one away.', 'DIVE (U) for the extra yard. PROTECT (R) the ball in traffic to avoid fumbles.', 'On pass plays, run your route and press CATCH as the ball arrives.'] },
-    COMMON_END,
-  ],
-  REC: [
-    { title: 'Run your route', text: ['Your route is drawn in gold before the snap and you run it automatically.', 'Steer with the left joystick to fight for space. The QB reads the field and looks for you when you are open.'] },
-    { title: 'Make the catch', text: ['Press CATCH (E) as the ball arrives to attack it at the high point. A marker shows where the ball will land.', 'After the catch you are the ball carrier: juke, spin, stiff arm and sprint for yards after catch.', 'Tight ends also block on run plays: stay between your man and the runner.'] },
-    COMMON_END,
-  ],
+  RB: [] as Step[],
+  REC: [] as Step[],
   DEF: [
     { title: 'Know your assignment', text: ['Before the snap you see your job: rush, man coverage on a receiver, or a zone (yellow ring).', 'Move with the left joystick. You can freelance, but busted coverage gets punished.'] },
     { title: 'Make the play', text: ['TACKLE (E) when you are close to the ball carrier. From a step away it becomes a diving tackle.', 'SWAT (Q) when the ball arrives to break up or intercept a pass.', 'Linemen: SHED (E) to beat a block, then chase the quarterback.'] },
@@ -50,6 +41,9 @@ export const TUTORIALS: Record<TutorialKey, Step[]> = {
     COMMON_END,
   ],
 };
+
+TUTORIALS.RB = [{ title: 'You run the offense', text: ['On your snaps you control the whole offense, Retro style: you throw every pass and steer whoever has the ball.', 'Your own player is marked with a blinking arrow. Get them the ball to fill your stat line.'] }, ...TUTORIALS.QB];
+TUTORIALS.REC = TUTORIALS.RB;
 
 export function Tutorial({ which, onClose }: { which: TutorialKey; onClose: () => void }) {
   const steps = TUTORIALS[which];

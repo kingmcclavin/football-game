@@ -48,7 +48,7 @@ No environment variables or server configuration are needed. Fonts (Press Start 
 1. **Create a player.** Pick QB, RB, WR, TE, LB, Defensive Back, Defensive Line or Kicker, an archetype, a pixel look (skin, face, hair, facial hair, body type, helmet, visor, gloves, cleats, sleeves, accessories), number, height and weight. *Quick Start* skips straight to an established prospect.
 2. **Choose your start.** *Rookie Prospect* runs a combine drill that sets your draft slot. *Established Prospect* starts as a high pick close to a starting job. *Undrafted Free Agent* starts on a one-year minimum deal near the bottom of the depth chart. Pick your preferred team or let the draft (or best camp invite) decide.
 3. **The weekly loop.** The career hub always shows what's next: optional training (a scored drill or a recovery day), then game day. Decision events pop up between some weeks, including asking for a trade when you are stuck on the bench.
-4. **Game day.** You play your own snaps on a pixel field. Snaps you sit out are simulated and summarized. Your snap count depends on your role (Practice Squad, Backup, Rotation, Starter).
+4. **Game day.** Call the coin toss, then play. Offensive careers (QB, RB, WR, TE) play arcade-style: on every offensive snap your player is in for, you pick a simple call, throw every pass with the slingshot and steer whoever has the ball, while your defense is simulated and summarized. Defensive careers play their own defensive snaps and kickers use the kick meter. Your snap count depends on your role (Practice Squad, Backup, Rotation, Starter). Default quarters are 3 minutes.
 5. **Progress.** XP from games, objectives, drills and awards gives levels and skill points for attributes (0-99) and abilities. Coach trust moves you up the depth chart and unlocks audibles (QB) and play requests. New plays unlock for your own calls as your level rises.
 6. **Seasons.** 3 preseason games, 17 regular-season weeks, a 14-team playoff and the **Crown Bowl**, with a trophy celebration and a Crown Bowl MVP. Awards are based on real stats and team success.
 7. **Offseason.** Extensions, re-signing or free agency with competing offers. The league ages, retires players, drafts rookies and builds a new schedule. Retire whenever you like for a career retrospective and Hall of Fame verdict.
@@ -57,11 +57,15 @@ A short first-time tutorial appears the first time you play each position group.
 
 ### Controls
 
-**Touch:** drag on the left side of the screen for a floating joystick (push fully to sprint). Context buttons appear on the right (Juke, Spin, Stiff Arm, Dive, Protect, Catch, Tackle, Swat, Shed...).
+**Touch (defensive careers):** drag on the left side of the screen for a floating joystick (push fully to sprint). Context buttons appear on the right (Tackle, Swat, Shed...).
 
-**Quarterback passing (drag to aim, the default):** after the snap, press on the right side of the field and drag toward where you want the ball to go. A dotted line shows the throw; drag farther for a longer, harder pass, and a green ring shows the receiver projected to arrive there. Release to throw. Tap a receiver for a quick touch pass. Accuracy depends on your ratings, distance, pressure and throwing on the run, and defenders can deflect or intercept. Settings also offers a receiver-button scheme.
+**Slingshot passing (the default):** after the snap, press anywhere and pull back, away from where you want the ball to go. An arc shows the throw and an X marks where it lands; pull farther to throw farther, and time slows down while you aim. A light magnet pulls the aim onto a receiver who will get there (green ring). Release to throw: the ball goes where the arc shows, with only a small ratings-based error. Tap a receiver for a quick pass. Defenders can still break up or intercept balls thrown into coverage. Settings also offers "drag toward the target" and receiver-button schemes.
 
-**Mouse and keyboard:** click-drag anywhere on the field to aim and throw. WASD / arrows move, Shift sprints, Space snaps / continues / locks the kick meter, 1-5 throw to receivers, J juke, K spin, L stiff arm, U dive, R protect, E context action, Q swat, T throw away, C camera zoom, Esc pause. Every key can be remapped.
+**Running (arcade offense):** whoever has the ball runs for the end zone automatically. Drag up or down anywhere to steer (pull back to slow down), swipe quickly up or down to juke, and tap Spin, Stiff Arm or Dive.
+
+**Play calls:** before each snap pick Quick Pass, Deep Shot, Play Action, Screen, Run Inside, Run Outside (and Hail Mary at the end of a half) or the Coach's Call. Each call picks a fitting play from your unlocked playbook.
+
+**Mouse and keyboard:** click, pull back and release anywhere on the field to throw; arrow keys steer the ball carrier. WASD / arrows move, Shift sprints, Space snaps / continues / locks the kick meter, 1-5 throw to receivers, J juke, K spin, L stiff arm, U dive, R protect, E context action, Q swat, T throw away, C camera zoom, Esc pause. Every key can be remapped.
 
 **Settings:** pass scheme, aim sensitivity, movement sensitivity, control size, left-handed layout, auto-sprint, difficulty, quarter length, game speed, camera zoom, sound effects, chiptune music, volume.
 
@@ -128,7 +132,8 @@ npm run e2e
 
 ## Known limitations
 
-- Pixel sprites are small and use a handful of animation frames; facial details show mainly in menu portraits.
+- The arcade offense is inspired by the feel of classic arcade football games; all code, art and names are original.
+- Pixel sprites use a handful of animation frames; facial details show mainly in menu portraits.
 - Kick and punt returns are live only when your player is the returner; other special-teams plays are simulated.
 - Onside kicks, laterals, fake punts and replay review are not implemented. Penalties are limited to the common fouls listed above.
 - Career creation offers 8 positions; OL, S and P exist in the league simulation but are not offered for new careers.
