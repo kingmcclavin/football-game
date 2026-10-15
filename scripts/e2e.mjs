@@ -73,7 +73,7 @@ while (Date.now() - t1 < 120000 && throws < 3) {
   if (await qb.locator('.aimhint').count()) {
     await qb.waitForTimeout(900);
     if (await qb.locator('.aimhint').count()) {
-      await qb.mouse.move(560, 200); await qb.mouse.down(); await qb.mouse.move(430, 240, { steps: 6 }); await qb.waitForTimeout(150); await qb.mouse.up();
+      await qb.mouse.move(420, 200); await qb.mouse.down(); await qb.mouse.move(550, 240, { steps: 6 }); await qb.waitForTimeout(150); await qb.mouse.up();
       throws++;
     }
   }

@@ -174,11 +174,15 @@ export function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, z:
   const h = Math.round(z);
   if (h > 0) {
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(x - 1, y, 3, 1);
+    ctx.fillRect(x - 2, y, 5, 1);
   }
-  ctx.fillStyle = '#7a3b12';
+  // dark outline so the ball reads against grass and crowd
+  ctx.fillStyle = '#2a1205';
+  if (Math.floor(spin) % 2) ctx.fillRect(x - 2, y - h - 3, 5, 4);
+  else ctx.fillRect(x - 1, y - h - 4, 4, 5);
+  ctx.fillStyle = '#8a4516';
   if (Math.floor(spin) % 2) ctx.fillRect(x - 1, y - h - 2, 3, 2);
-  else ctx.fillRect(x - 1, y - h - 3, 2, 3);
+  else ctx.fillRect(x, y - h - 3, 2, 3);
   ctx.fillStyle = '#f0e6d6';
   ctx.fillRect(x, y - h - 2, 1, 1);
 }

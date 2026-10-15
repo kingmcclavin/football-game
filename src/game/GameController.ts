@@ -578,7 +578,8 @@ export class GameController {
   }
 
   protected dirFor(offSide: 0 | 1): 1 | -1 {
-    if (!this.isDrill) return offSide === this.userSideIdx ? 1 : -1;
+    // The user's team always attacks right-to-left.
+    if (!this.isDrill) return offSide === this.userSideIdx ? -1 : 1;
     const homeDir: 1 | -1 = this.g.quarter > 4 ? 1 : this.g.quarter % 2 === 1 ? 1 : -1;
     return offSide === 0 ? homeDir : (homeDir === 1 ? -1 : 1);
   }
@@ -759,7 +760,7 @@ export class GameController {
     if (len > maxD) { ax = qb.x + ((ax - qb.x) / len) * maxD; ay = qb.y + ((ay - qb.y) / len) * maxD; }
     ay = clamp(ay, -1, 53.333 + 1);
     // Highlight the receiver projected nearest to the aim point.
-    const T = Math.hypot(ax - qb.x, ay - qb.y) / 24 + (sling ? 0.1 : 0.24);
+    const T = sling ? sim.slingTime(qb, ax, ay) : Math.hypot(ax - qb.x, ay - qb.y) / 24 + 0.24;
     let best = -1, bd = 4.5;
     for (const r of sim.receivers()) {
       const p = sim.predict(r, T);
@@ -813,7 +814,7 @@ export class GameController {
     if (this.aim.active) {
       const qb = sim.agents[sim.qb];
       const air = Math.hypot(this.aim.x - qb.x, this.aim.y - qb.y);
-      const power = clamp(0.3 + (air / sim.maxThrow(qb)) * 0.75, 0.3, 1);
+      const power = this.aim.arc ? sim.slingPower(qb, this.aim.x, this.aim.y) : clamp(0.3 + (air / sim.maxThrow(qb)) * 0.75, 0.3, 1);
       sim.throwToPoint(this.aim.x, this.aim.y, power, this.aim.arc);
     }
     this.aimCancel();

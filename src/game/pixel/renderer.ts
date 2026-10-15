@@ -284,6 +284,12 @@ export class Renderer2D {
     return Math.max(0, Math.min(Math.max(0, maxX), target));
   }
 
+  /** Extra lob height (pixels) for a pass between two screen points. */
+  arcLift(ax: number, ay: number, bx: number, by: number): number {
+    const len = Math.hypot(bx - ax, by - ay);
+    return Math.min(46, len * 0.26) + 2;
+  }
+
   addShake(v: number) {
     this.shake = Math.max(this.shake, v * 6);
   }
@@ -344,7 +350,15 @@ export class Renderer2D {
       const h = sim.agents[b.holder];
       const face = this.facing(h);
       drawBall(g, this.sx(h.x) + face * 3, this.sy(h.y) + sh, h.down ? 2 : 8, 0);
-    } else drawBall(g, bx, by, b.z * this.ppz, this.t * 14);
+    } else {
+      // Passes get a visible lob that matches the aiming arc exactly.
+      let lift = 0;
+      if (b.state === 'air' && b.kind === 'pass' && b.tArrive > b.t0) {
+        const k = Math.max(0, Math.min(1, (sim.t - b.t0) / (b.tArrive - b.t0)));
+        lift = this.arcLift(this.sx(b.x0), this.sy(b.y0), this.sx(b.tx), this.sy(b.ty)) * 4 * k * (1 - k);
+      }
+      drawBall(g, bx, by, b.z * this.ppz + lift, this.t * 14);
+    }
     // user indicator & QB reads
     if (opts.userQbReads) {
       for (const r of opts.userQbReads) {
@@ -361,17 +375,18 @@ export class Renderer2D {
     // aim line
     const aim = opts.aim;
     if (aim && aim.active && aim.arc && sim.qb >= 0) {
+      // Same path the ball will fly: launch height -> catch height plus the lob.
       const qb = sim.agents[sim.qb];
-      const ax = this.sx(qb.x), ay = this.sy(qb.y) - 10, bx = this.sx(aim.x), by = this.sy(aim.y);
+      const ax = this.sx(qb.x), ay = this.sy(qb.y), bx = this.sx(aim.x), by = this.sy(aim.y);
+      const h = this.arcLift(ax, ay, bx, by);
       const len = Math.hypot(bx - ax, by - ay);
-      const h = Math.min(60, len * 0.32) + 4;
       const n = Math.max(8, Math.floor(len / 4));
       const phase = Math.floor(this.t * 10) % 3;
       for (let i = 0; i <= n; i++) {
         const k = i / n;
+        const z = (2 + (1.55 - 2) * k) * this.ppz + h * 4 * k * (1 - k);
         g.fillStyle = (i + phase) % 3 === 0 ? '#ffd23f' : '#ffffff';
-        const px = Math.round(ax + (bx - ax) * k), py = Math.round(ay + (by - ay) * k - h * 4 * k * (1 - k) + 10 * k);
-        g.fillRect(px, py, 2, 2);
+        g.fillRect(Math.round(ax + (bx - ax) * k), Math.round(ay + (by - ay) * k - z), 2, 2);
       }
       // landing spot: shadow + X
       g.fillStyle = 'rgba(0,0,0,0.35)';

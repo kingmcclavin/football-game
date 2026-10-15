@@ -192,9 +192,9 @@ describe('PlaySim arcade offense', () => {
         if (!thrown && sim.t > 1.5 && sim.canThrow()) {
           const qb = sim.agents[sim.qb];
           const best = sim.receivers().map((r) => ({ r, o: sim.openness(qb, r) })).sort((a, b) => b.o - a.o)[0];
-          const T = Math.hypot(best.r.x - qb.x, best.r.y - qb.y) / 22 + 0.1;
-          const p = sim.predict(best.r, T);
-          thrown = sim.throwToPoint(p.x, p.y, Math.min(1, 0.3 + (Math.hypot(p.x - qb.x, p.y - qb.y) / sim.maxThrow(qb)) * 0.75), true);
+          let p = sim.predict(best.r, sim.slingTime(qb, best.r.x, best.r.y));
+          p = sim.predict(best.r, sim.slingTime(qb, p.x, p.y));
+          thrown = sim.throwToPoint(p.x, p.y, sim.slingPower(qb, p.x, p.y), true);
         }
         sim.step(1 / 60);
       }

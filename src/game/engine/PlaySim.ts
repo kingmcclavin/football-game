@@ -107,6 +107,7 @@ export interface Ball {
   x: number; y: number; z: number;
   vx: number; vy: number; vz: number;
   tx: number; ty: number; // landing / catch point
+  x0: number; y0: number; // launch point
   target: number;
   thrower: number;
   t0: number;
@@ -251,7 +252,7 @@ export class PlaySim {
     this.rng = new Rng(setup.seed);
     this.los = setup.los;
     this.firstDownX = setup.kind === 'scrimmage' ? Math.min(100, setup.los + setup.toGo) : setup.los;
-    this.ball = { state: 'pre', holder: -1, x: setup.los, y: setup.hashY, z: 0.2, vx: 0, vy: 0, vz: 0, tx: 0, ty: 0, target: -1, thrower: -1, t0: 0, tArrive: 0, kind: 'snap', bounced: 0, touchedBy: null };
+    this.ball = { state: 'pre', holder: -1, x: setup.los, y: setup.hashY, z: 0.2, vx: 0, vy: 0, vz: 0, tx: 0, ty: 0, x0: setup.los, y0: setup.hashY, target: -1, thrower: -1, t0: 0, tArrive: 0, kind: 'snap', bounced: 0, touchedBy: null };
     if (setup.kind === 'scrimmage') this.buildScrimmage(setup);
     else this.buildKick(setup);
     this.user = this.agents.find((a) => a.user) ?? null;
@@ -968,8 +969,7 @@ export class PlaySim {
   private releasePass(qb: SimAgent, p: { target: number; power: number; leadX: number; leadY: number; away?: boolean; pt?: { x: number; y: number }; precise?: boolean }) {
     const a = qb.p.attrs;
     const power = clamp(p.power, 0, 1);
-    const thp = rating(a, 'thp', 60);
-    const speed = (16 + thp * 0.12) * (0.72 + 0.36 * power) * mod(qb.mods, 'throwSpeed', 1);
+    const speed = this.passSpeed(qb, power);
     let tx: number, ty: number, T: number;
     if (p.away || p.target < 0) {
       // Throw it out of bounds near the closest sideline.
@@ -1036,7 +1036,7 @@ export class PlaySim {
     if (qbSpeed > 2.5) sigma *= 1 + (qbSpeed / 8) * (1 - rating(a, 'tor') / 120) * mod(qb.mods, 'runAcc', 1);
     if (power > 0.92 && !p.precise) sigma *= 1.08;
     // Slingshot throws go where the arc shows: only a small rating-based error remains.
-    if (p.precise) sigma *= 0.4;
+    if (p.precise) sigma *= 0.22;
     if (qb.user) sigma *= (this.setup as ScrimmageSetup).oppDiff.userAcc;
     const errPerp = this.rng.normal(0, sigma * airDist);
     const errAlong = this.rng.normal(0, sigma * airDist * 0.6);
@@ -1072,6 +1072,7 @@ export class PlaySim {
     b.vy = (ty - b.y) / T;
     b.vz = (CATCH_H - b.z) / T + 0.5 * G * T;
     b.tx = tx; b.ty = ty;
+    b.x0 = b.x; b.y0 = b.y;
     b.target = target;
     b.thrower = from.i;
     b.t0 = this.t;
@@ -1981,6 +1982,23 @@ export class PlaySim {
     }
     this.throwTo(r.i, power, lx, ly);
     return { dx: 0, dy: 0, speed: 0 };
+  }
+
+  /** Horizontal ball speed (yd/s) for a throw of the given power. */
+  passSpeed(qb: SimAgent, power: number): number {
+    const thp = rating(qb.p.attrs, 'thp', 60);
+    return (16 + thp * 0.12) * (0.72 + 0.36 * clamp(power, 0, 1)) * mod(qb.mods, 'throwSpeed', 1);
+  }
+
+  /** Power the arcade (slingshot) throw uses to reach a spot. */
+  slingPower(qb: SimAgent, x: number, y: number): number {
+    return clamp(0.3 + (dist(qb.x, qb.y, x, y) / this.maxThrow(qb)) * 0.75, 0.3, 1);
+  }
+
+  /** Seconds from release until a slingshot throw reaches (x, y), including the wind-up. */
+  slingTime(qb: SimAgent, x: number, y: number): number {
+    const p = this.slingPower(qb, x, y);
+    return 0.1 + (dist(qb.x, qb.y, x, y) / this.passSpeed(qb, p)) * (p < 0.45 ? 1.12 : 1);
   }
 
   maxThrow(qb: SimAgent): number {
