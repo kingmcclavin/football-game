@@ -44,7 +44,7 @@
 #define T_TICK 24
 
 /* OBJ tiles */
-#define OT_PLAYER 4      /* 8 frames x 4 tiles */
+#define OT_PLAYER 256    /* 32 frames x 16 tiles (32x32) */
 #define OT_BALL 36
 #define OT_BALL2 37
 #define OT_SHADOW 38

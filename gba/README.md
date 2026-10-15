@@ -6,7 +6,9 @@ Pixel Pigskin is an original American football game built as a real Game Boy Adv
 
 You call plays, aim and throw every pass, and steer every ball carrier. The CPU's possessions are simulated, but you pick the defensive call for each one. Between games you run the franchise: roster, salary cap, contracts, training, facilities, draft, free agency, playoffs and the **Gold Helmet** championship. The career goes on for as many seasons as you want.
 
-The game takes its inspiration from short-session arcade football career games. Its name, teams, players, art, music, menus and code are all original. It uses no assets from any other game.
+The game takes its inspiration from short-session arcade football career games. Its name, teams, players, music, menus and code are original.
+
+**Credits:** player sprites by **JordanTRS** (`assets/players_jordantrs.png`, credit required by the author). The UI art, field, ball, trophy and font are original to this project.
 
 | | | |
 |---|---|---|
@@ -101,7 +103,7 @@ cd gba
 ```
 
 `make` runs three steps:
-1. `tools/gen_assets.py` converts the ASCII-art assets in `assets/` into tile data (`src/gen_assets.c`).
+1. `tools/gen_assets.py` converts the ASCII-art assets in `assets/` into tile data (`src/gen_assets.c`). If you change the player sheet, re-run `python3 tools/import_sheet.py` first (it needs Pillow).
 2. The C sources are compiled for Thumb.
 3. `tools/gbafix.py` writes the cartridge header (logo, title `PIXELPIGSKIN`, code `PXPE`, checksum).
 
@@ -120,7 +122,10 @@ make romtest    # headless mGBA: smoke run, full season + offseason, demo game, 
 ```
 gba/
   build.sh, Makefile, gba.ld        build
-  assets/font.txt, sprites.txt      original pixel art (ASCII grids, editable in any text editor)
+  assets/font.txt, sprites.txt      original UI/field pixel art (ASCII grids)
+  assets/players_jordantrs.png      player sprite sheet by JordanTRS (source)
+  assets/players.txt                player frames cut from the sheet (generated)
+  tools/import_sheet.py             sheet -> players.txt (frame list, colour keys)
   tools/gen_assets.py               asset converter (+ PNG previews with --preview DIR)
   tools/gbafix.py                   cartridge header fixer
   tools/mgba_runner.c, romtest.sh   headless emulator test harness
@@ -155,8 +160,8 @@ Gameplay logic (`play`, `rules`, `sim`, `league`, `season`, `offseason`, `save`)
 - **Display:** Mode 0.
   - BG0 is text, BG2 is panels, BG1 is the field or menu backdrop.
   - The field map is 104×32 tiles, generated from about 100 cached tiles. It streams into a 64×32 background as the camera scrolls.
-  - Sprites are 16×16 players in 8 animation frames. Uniform palettes are generated per team: the home team wears its colours and the away team wears white, with two skin tones each.
-- **Performance:** a live play uses about 115 of the 228 scanlines in a frame, roughly 50% CPU at 60 fps (measured in mGBA). The ROM is about 100 KB, and the RAM footprint is about 4 KB IWRAM and about 27 KB EWRAM.
+  - Players are 32×32 sprites with 32 animation frames: stand, a 6-frame run, a 6-frame run with the ball, aim, throw, jump catch, fall, down, wrestle (blocking), dive, stiff arm, kneel and celebrate. The sheet uses key colours, which become palette indices. Each team gets home colours or away whites, with two skin tones and ground shadows.
+- **Performance:** a live play uses at most about 150 of the 228 scanlines in a frame, roughly 65% CPU at 60 fps (measured in mGBA). The ROM is about 100 KB, and the RAM footprint is about 4 KB IWRAM and about 27 KB EWRAM.
 - **Save:** the 8.8 KB career block is written twice (slots at 0x0000 and 0x4000). Each copy has a version, a size, a save counter and a checksum. On load the game takes the newest valid copy, so a torn or corrupted write can't destroy the career. All SRAM access is 8-bit, as the hardware requires.
 - **Audio:** all sound uses the PSG channels, with no DMA. Square channel 2 and the noise channel play effects (snap, throw, catch, tackle, whistle, first down, touchdown fanfare, kick, good/no good, turnover, crowd). Square channel 1 and the wave channel play music: a title theme, a hub theme, and victory, defeat and championship jingles.
 

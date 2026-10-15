@@ -81,37 +81,36 @@ static void set_text_pal(int bank, u16 c)
 
 void pal_team_obj(int bank, int team, int away, int darkSkin)
 {
+    /* index layout: see TEAM_LEGEND in tools/gen_assets.py */
     volatile u16 *p = MEM_PAL_OBJ + bank * 16;
     const TeamInfo *t = &team_info[team];
     u16 c1 = team_rgb(team, 0), c2 = team_rgb(team, 1);
     u16 helmet = t->helmetSecondary ? c2 : c1;
-    p[1] = RGB15(2, 2, 4);
+    u16 white = RGB15(29, 29, 30);
+    p[1] = helmet;
+    p[2] = t->helmetSecondary ? c1 : c2;            /* helmet stripe */
+    p[3] = RGB15(22, 22, 24);                       /* facemask */
+    p[4] = RGB15(13, 13, 15);
     if (darkSkin) {
-        p[2] = RGB15(17, 11, 7);
-        p[3] = RGB15(12, 7, 4);
+        p[5] = RGB15(17, 11, 7);
+        p[6] = RGB15(11, 7, 4);
     } else {
-        p[2] = RGB15(30, 22, 16);
-        p[3] = RGB15(23, 15, 10);
+        p[5] = RGB15(30, 22, 16);
+        p[6] = RGB15(22, 15, 10);
     }
-    if (away) {
-        p[4] = RGB15(29, 29, 30);
-        p[5] = RGB15(21, 21, 24);
-        p[6] = t->pantsPrimary ? c1 : RGB15(28, 28, 29);
-        p[13] = c1;
-    } else {
-        p[4] = c1;
-        p[5] = rgb_dim(c1, 2, 3);
-        p[6] = t->pantsPrimary ? c1 : c2;
-        p[13] = c2;
-    }
-    p[7] = RGB15(31, 31, 31);
-    p[8] = helmet;
-    p[9] = rgb_light(helmet, 10);
-    p[10] = RGB15(18, 18, 20);
-    p[11] = RGB15(3, 3, 3);
-    p[12] = RGB15(3, 8, 3);
-    p[14] = c2;
-    p[15] = c1;
+    u16 jersey = away ? white : c1;
+    u16 pants = t->pantsPrimary ? c1 : (away ? white : c2);
+    if (pants == jersey && !away)
+        pants = c2;
+    p[7] = jersey;
+    p[8] = pants;
+    p[9] = rgb_dim(pants, 3, 4);
+    p[10] = away ? c1 : white;                      /* socks */
+    p[11] = rgb_dim(p[10], 3, 4);
+    p[12] = RGB15(3, 3, 4);                         /* cleats */
+    p[13] = RGB15(17, 8, 3);                        /* ball */
+    p[14] = RGB15(31, 31, 31);
+    p[15] = RGB15(2, 2, 4);
 }
 
 void pal_team_bg(int bank, int team, int useSecondary)
@@ -266,12 +265,8 @@ static void load_obj(int tile, const u32 *data, int ntiles)
 
 static void load_obj_tiles(void)
 {
-    static const u32 *const frames[8] = {
-        spr_pl_stand, spr_pl_run1, spr_pl_run2, spr_pl_throw,
-        spr_pl_catch, spr_pl_down, spr_pl_block, spr_pl_dive,
-    };
-    for (int f = 0; f < 8; f++)
-        load_obj(OT_PLAYER + f * 4, frames[f], 4);
+    for (int f = 0; f < NUM_PLAYER_FRAMES; f++)
+        load_obj(OT_PLAYER + f * 16, player_frames[f], 16);
     load_obj(OT_BALL, spr_ball, 1);
     load_obj(OT_BALL2, spr_ball2, 1);
     load_obj(OT_SHADOW, spr_shadow, 1);

@@ -307,9 +307,13 @@ static void draw_actors(int showLines)
     for (int k = 0; k < NUM_ACTORS; k++) {
         int i = order[k];
         const Actor *a = &ps.a[i];
-        int sx = px_x(a->x) - s_camX - 8, sy = px_y(a->y) - s_camY - 15;
+        int fx = px_x(a->x) - s_camX, fy = px_y(a->y) - s_camY;
         int pal = (a->side == 0 ? s_userPal : s_oppPal) + s_skin[i];
-        oam_add(sx, sy, OT_PLAYER + a->frame * 4, SPR_16x16, pal, 2, a->flip ? ATTR1_HFLIP : 0);
+        oam_add(fx - 16, fy - 30, OT_PLAYER + a->frame * 16, SPR_32x32, pal, 2, a->flip ? ATTR1_HFLIP : 0);
+    }
+    for (int i = 0; i < NUM_ACTORS; i++) {
+        const Actor *a = &ps.a[i];
+        oam_add_blend(px_x(a->x) - s_camX - 4, px_y(a->y) - s_camY - 3, OT_SHADOW, SPR_8x8, OPAL_MISC, 2);
     }
     draw_goalposts();
     if (showLines) {

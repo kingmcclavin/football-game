@@ -1451,7 +1451,7 @@ void screen_title(void)
         big_text(5, 2, "PIXEL");
         big_text(8, 5, "PIGSKIN");
         txt_center(8, "ARCADE FOOTBALL CAREER", PAL_CYAN);
-        txt_center(18, "HOMEBREW 2026 - ORIGINAL GAME", PAL_GRAY);
+        txt_center(18, "PLAYER SPRITES BY JORDANTRS", PAL_GRAY);
         music_play(MUS_TITLE);
         static const char *items[5];
         items[0] = "CONTINUE CAREER";

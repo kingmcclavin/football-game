@@ -1486,47 +1486,64 @@ void play_update(PlayState *ps, u16 held, u16 pressed, u16 released)
         end_play(ps, OUT_TACKLE, carrier_x(ps));
 
 anim:
-    /* animation frames */
+    /* animation frames (JordanTRS sprite set, see FR_* in play.h) */
     for (int i = 0; i < NUM_ACTORS; i++) {
         Actor *a = &ps->a[i];
         s32 sp = approx_len(a->vx, a->vy);
+        int hasBall = i == ps->carrier || i == ps->out.carrier;
         if (a->vx > 40)
             a->flip = 0;
         else if (a->vx < -40)
             a->flip = 1;
-        if (a->down || a->stun) {
-            a->frame = (i == ps->carrier && ps->out.diving) ? FR_DIVE : FR_DOWN;
+        a->anim++;
+        if (ps->celebrate && i == ps->out.carrier) {
+            a->frame = ((a->anim >> 4) & 1) ? FR_CELEB2 : FR_CELEB1;
             continue;
         }
-        if (ps->celebrate && i == ps->out.carrier) {
-            a->frame = FR_CATCH;
+        if (a->down) {
+            if (i == A_QB && ps->out.type == OUT_KNEEL)
+                a->frame = FR_KNEEL;
+            else if (hasBall && ps->out.diving)
+                a->frame = FR_DIVE3;
+            else
+                a->frame = hasBall ? FR_DOWN_BALL : FR_DOWN;
+            continue;
+        }
+        if (a->stun) {
+            a->frame = a->stun > 18 ? FR_FALL : FR_DOWN;
             continue;
         }
         if (i == ps->carrier && ps->dive) {
-            a->frame = FR_DIVE;
+            a->frame = ps->dive > 13 ? FR_DIVE1 : (ps->dive > 6 ? FR_DIVE2 : FR_DIVE3);
             continue;
         }
         if (a->engaged >= 0) {
-            a->frame = FR_BLOCK;
+            a->frame = ((a->anim >> 4) & 1) ? FR_BLOCK2 : FR_BLOCK1;
+            continue;
+        }
+        if (i == A_QB && ps->aiming) {
+            a->frame = FR_AIM;
             continue;
         }
         if (i == A_QB && ps->throwFrame && ps->throwFrame < 14) {
             a->frame = FR_THROW;
             continue;
         }
-        if (i == A_QB && ps->aiming) {
-            a->frame = FR_THROW;
+        if (ps->ball.state == BALL_AIR && i == ps->ball.intended && ps->ball.T - ps->ball.t < 14) {
+            int left = ps->ball.T - ps->ball.t;
+            a->frame = left > 9 ? FR_CATCH1 : (left > 4 ? FR_CATCH2 : FR_CATCH3);
             continue;
         }
-        if (ps->ball.state == BALL_AIR && i == ps->ball.intended && ps->ball.T - ps->ball.t < 10) {
-            a->frame = FR_CATCH;
+        if (i == ps->carrier && ps->stiff) {
+            a->frame = FR_STIFF;
             continue;
         }
         if (sp > 60) {
-            a->anim = (u8)(a->anim + 1 + (sp > 500));
-            a->frame = ((a->anim >> 3) & 1) ? FR_RUN2 : FR_RUN1;
+            a->anim = (u8)(a->anim + (sp > 450));
+            int f = (a->anim >> 2) % 6;
+            a->frame = (u8)((i == ps->carrier ? FR_RUNB1 : FR_RUN1) + f);
         } else {
-            a->frame = (ps->phase == PP_PRESNAP && (i >= A_OL1 && i <= A_DL3)) ? FR_BLOCK : FR_STAND;
+            a->frame = (i == ps->carrier) ? FR_STAND_BALL : FR_STAND;
         }
     }
 }

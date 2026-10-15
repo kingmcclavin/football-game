@@ -4,22 +4,6 @@
 #include "types.h"
 extern const u32 font_tiles[96 * 8];
 extern const u16 note_rates[128];
-extern const u32 spr_pl_stand[32];
-#define SPR_PL_STAND_TILES 4
-extern const u32 spr_pl_run1[32];
-#define SPR_PL_RUN1_TILES 4
-extern const u32 spr_pl_run2[32];
-#define SPR_PL_RUN2_TILES 4
-extern const u32 spr_pl_throw[32];
-#define SPR_PL_THROW_TILES 4
-extern const u32 spr_pl_catch[32];
-#define SPR_PL_CATCH_TILES 4
-extern const u32 spr_pl_down[32];
-#define SPR_PL_DOWN_TILES 4
-extern const u32 spr_pl_block[32];
-#define SPR_PL_BLOCK_TILES 4
-extern const u32 spr_pl_dive[32];
-#define SPR_PL_DIVE_TILES 4
 extern const u32 spr_ball[8];
 #define SPR_BALL_TILES 1
 extern const u32 spr_ball2[8];
@@ -48,4 +32,70 @@ extern const u32 spr_crest[32];
 #define SPR_CREST_TILES 4
 extern const u32 spr_bigball[64];
 #define SPR_BIGBALL_TILES 8
+extern const u32 spr_pf_stand[128];
+#define SPR_PF_STAND_TILES 16
+extern const u32 spr_pf_stand_ball[128];
+#define SPR_PF_STAND_BALL_TILES 16
+extern const u32 spr_pf_run1[128];
+#define SPR_PF_RUN1_TILES 16
+extern const u32 spr_pf_run2[128];
+#define SPR_PF_RUN2_TILES 16
+extern const u32 spr_pf_run3[128];
+#define SPR_PF_RUN3_TILES 16
+extern const u32 spr_pf_run4[128];
+#define SPR_PF_RUN4_TILES 16
+extern const u32 spr_pf_run5[128];
+#define SPR_PF_RUN5_TILES 16
+extern const u32 spr_pf_run6[128];
+#define SPR_PF_RUN6_TILES 16
+extern const u32 spr_pf_runb1[128];
+#define SPR_PF_RUNB1_TILES 16
+extern const u32 spr_pf_runb2[128];
+#define SPR_PF_RUNB2_TILES 16
+extern const u32 spr_pf_runb3[128];
+#define SPR_PF_RUNB3_TILES 16
+extern const u32 spr_pf_runb4[128];
+#define SPR_PF_RUNB4_TILES 16
+extern const u32 spr_pf_runb5[128];
+#define SPR_PF_RUNB5_TILES 16
+extern const u32 spr_pf_runb6[128];
+#define SPR_PF_RUNB6_TILES 16
+extern const u32 spr_pf_aim[128];
+#define SPR_PF_AIM_TILES 16
+extern const u32 spr_pf_throw[128];
+#define SPR_PF_THROW_TILES 16
+extern const u32 spr_pf_catch1[128];
+#define SPR_PF_CATCH1_TILES 16
+extern const u32 spr_pf_catch2[128];
+#define SPR_PF_CATCH2_TILES 16
+extern const u32 spr_pf_catch3[128];
+#define SPR_PF_CATCH3_TILES 16
+extern const u32 spr_pf_fall[128];
+#define SPR_PF_FALL_TILES 16
+extern const u32 spr_pf_down[128];
+#define SPR_PF_DOWN_TILES 16
+extern const u32 spr_pf_block1[128];
+#define SPR_PF_BLOCK1_TILES 16
+extern const u32 spr_pf_block2[128];
+#define SPR_PF_BLOCK2_TILES 16
+extern const u32 spr_pf_dive1[128];
+#define SPR_PF_DIVE1_TILES 16
+extern const u32 spr_pf_dive2[128];
+#define SPR_PF_DIVE2_TILES 16
+extern const u32 spr_pf_dive3[128];
+#define SPR_PF_DIVE3_TILES 16
+extern const u32 spr_pf_celeb1[128];
+#define SPR_PF_CELEB1_TILES 16
+extern const u32 spr_pf_celeb2[128];
+#define SPR_PF_CELEB2_TILES 16
+extern const u32 spr_pf_stiff[128];
+#define SPR_PF_STIFF_TILES 16
+extern const u32 spr_pf_kneel[128];
+#define SPR_PF_KNEEL_TILES 16
+extern const u32 spr_pf_down_ball[128];
+#define SPR_PF_DOWN_BALL_TILES 16
+extern const u32 spr_pf_fall_ball[128];
+#define SPR_PF_FALL_BALL_TILES 16
+#define NUM_PLAYER_FRAMES 32
+extern const u32 *const player_frames[NUM_PLAYER_FRAMES];
 #endif
