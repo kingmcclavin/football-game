@@ -14,6 +14,8 @@
 #include "util.h"
 #include <string.h>
 
+#define DEL_CHAR 127 /* left-pointing cursor glyph */
+
 static int s_hasSave;
 
 /* ------------------------------------------------------------------ */
@@ -1398,28 +1400,149 @@ int screen_new_career(void)
 /* quick game                                                          */
 /* ------------------------------------------------------------------ */
 
+/* Exhibition: a one-off game for practice and quick tests. Never saved. */
+static u8 s_exTeam = 0, s_exOpp = 1, s_exAway = 0, s_exQtr = 2, s_exDiff = DIFF_PRO;
+
+static void exhibition_draw(int sel)
+{
+    static const char *const dn[3] = {"ROOKIE", "PRO", "LEGEND"};
+    static const char *const labels[7] = {"YOUR TEAM", "OPPONENT", "VENUE", "QUARTERS", "DIFFICULTY",
+                                          "START GAME", "BACK"};
+    char val[32];
+    ui_screen(1);
+    ui_title("EXHIBITION", "NOT SAVED");
+    pnl_box(0, 3, 30, 11);
+    for (int i = 0; i < 7; i++) {
+        int y = 4 + i + (i >= 5 ? 1 : 0);
+        pnl_fill(1, y, 28, 1, i == sel ? T_HILITE : T_FILL);
+        if (i == sel)
+            txt_put(1, y, '`', PAL_YELLOW);
+        txt_print(2, y, labels[i], i == sel ? PAL_YELLOW : (i >= 5 ? PAL_CYAN : PAL_WHITE));
+        val[0] = 0;
+        switch (i) {
+        case 0: fmt(val, "%s %s", team_info[s_exTeam].abbr, team_info[s_exTeam].name); break;
+        case 1: fmt(val, "%s %s", team_info[s_exOpp].abbr, team_info[s_exOpp].name); break;
+        case 2: fmt(val, "%s", s_exAway ? "AWAY" : "HOME"); break;
+        case 3: fmt(val, "%d MIN", s_exQtr); break;
+        case 4: fmt(val, "%s", dn[s_exDiff]); break;
+        }
+        if (val[0]) {
+            val[15] = 0;
+            txt_print(13, y, val, PAL_WHITE);
+            if (i == sel)
+                txt_put(12, y, DEL_CHAR, PAL_GRAY);
+        }
+    }
+    fmt(val, "OVR %d vs %d", team_ovr(s_exTeam), team_ovr(s_exOpp));
+    txt_print(2, 15, val, PAL_GRAY);
+    txt_print(2, 16, "Short quarters = fast tests.", PAL_GRAY);
+    ui_hint("L/R: CHANGE  A: SELECT");
+    oam_begin();
+    ui_crest(200, 116, s_exTeam, OPAL_CREST);
+    ui_crest(222, 116, s_exOpp, OPAL_CREST + 1);
+}
+
 void screen_quick_game(void)
 {
     if (!(s_hasSave && save_load()))
         league_new(0, DIFF_PRO, "COACH", g_frame * 747796405u + 1);
-    int a = pick_team("QUICK GAME: YOUR TEAM", 0, -1);
-    if (a < 0)
-        return;
-    int b = pick_team("QUICK GAME: OPPONENT", (a + 1) % NUM_TEAMS, a);
-    if (b < 0)
-        return;
-    static const char *const ha[2] = {"PLAY AT HOME", "PLAY AWAY"};
-    ui_screen(0);
-    ui_title("QUICK GAME", 0);
-    int h = ui_menu(7, 6, 16, ha, 2, 0, 0);
-    if (h < 0)
-        return;
-    MatchResult mr;
-    gfx_fade_out();
-    match_play(h == 0 ? a : b, h == 0 ? b : a, a, MF_EXHIBITION, &mr);
-    /* exhibition never touches the save; restore the career in RAM */
-    if (s_hasSave)
-        save_load();
+    if (s_exOpp == s_exTeam)
+        s_exOpp = (u8)((s_exTeam + 1) % NUM_TEAMS);
+    int sel = 5;
+    for (;;) {
+        exhibition_draw(sel);
+        int go = 0;
+        for (;;) {
+            ui_frame();
+            int old = sel, changed = 0;
+            if (key_repeat & KEY_DOWN) sel = (sel + 1) % 7;
+            if (key_repeat & KEY_UP) sel = (sel + 6) % 7;
+            int d = (key_repeat & KEY_RIGHT) ? 1 : (key_repeat & KEY_LEFT) ? -1 : 0;
+            if (d) {
+                changed = 1;
+                switch (sel) {
+                case 0:
+                    do s_exTeam = (u8)((s_exTeam + NUM_TEAMS + d) % NUM_TEAMS); while (s_exTeam == s_exOpp);
+                    break;
+                case 1:
+                    do s_exOpp = (u8)((s_exOpp + NUM_TEAMS + d) % NUM_TEAMS); while (s_exOpp == s_exTeam);
+                    break;
+                case 2: s_exAway ^= 1; break;
+                case 3: s_exQtr = (u8)(1 + (s_exQtr - 1 + 6 + d) % 6); break;
+                case 4: s_exDiff = (u8)((s_exDiff + 3 + d) % 3); break;
+                default: changed = 0; break;
+                }
+            }
+            if (sel != old || changed) {
+                snd_play(SFX_MOVE);
+                break;
+            }
+            if (key_pressed & KEY_B) {
+                snd_play(SFX_BACK);
+                if (s_hasSave)
+                    save_load();
+                return;
+            }
+            if (key_pressed & KEY_A) {
+                snd_play(SFX_OK);
+                if (sel == 6) {
+                    if (s_hasSave)
+                        save_load();
+                    return;
+                }
+                if (sel == 0 || sel == 1) {
+                    int t = pick_team(sel == 0 ? "EXHIBITION: YOUR TEAM" : "EXHIBITION: OPPONENT",
+                                      sel == 0 ? s_exTeam : s_exOpp, sel == 0 ? s_exOpp : s_exTeam);
+                    if (t >= 0) {
+                        if (sel == 0)
+                            s_exTeam = (u8)t;
+                        else
+                            s_exOpp = (u8)t;
+                    }
+                    break;
+                }
+                if (sel == 5) {
+                    go = 1;
+                    break;
+                }
+                /* A on a value row also changes it */
+                if (sel == 2) s_exAway ^= 1;
+                if (sel == 3) s_exQtr = (u8)(s_exQtr % 6 + 1);
+                if (sel == 4) s_exDiff = (u8)((s_exDiff + 1) % 3);
+                break;
+            }
+        }
+        if (!go)
+            continue;
+        /* play (and replay) */
+        for (;;) {
+            u8 keepQ = g_career.quarterMin, keepD = g_career.difficulty;
+            g_career.quarterMin = s_exQtr;
+            g_career.difficulty = s_exDiff;
+            int home = s_exAway ? s_exOpp : s_exTeam, away = s_exAway ? s_exTeam : s_exOpp;
+            MatchResult mr;
+            gfx_fade_out();
+            match_play(home, away, s_exTeam, MF_EXHIBITION, &mr);
+            g_career.quarterMin = keepQ;
+            g_career.difficulty = keepD;
+            music_play(MUS_TITLE);
+            ui_screen(0);
+            ui_title("EXHIBITION OVER", 0);
+            char buf[40];
+            fmt(buf, "%s %d - %s %d", team_info[s_exTeam].abbr, mr.userScore, team_info[s_exOpp].abbr, mr.oppScore);
+            txt_center(5, buf, PAL_YELLOW);
+            static const char *const after[3] = {"REMATCH", "CHANGE SETUP", "TITLE SCREEN"};
+            int r = ui_menu(7, 8, 16, after, 3, 0, 0);
+            if (r == 0)
+                continue;
+            if (r == 1)
+                break;
+            /* exhibition never touches the save; restore the career in RAM */
+            if (s_hasSave)
+                save_load();
+            return;
+        }
+    }
 }
 
 /* attract mode: the CPU plays a game until a button is pressed */
@@ -1456,7 +1579,7 @@ void screen_title(void)
         static const char *items[5];
         items[0] = "CONTINUE CAREER";
         items[1] = "NEW CAREER";
-        items[2] = "QUICK GAME";
+        items[2] = "EXHIBITION";
         items[3] = "HOW TO PLAY";
         items[4] = snd_enabled() ? "SOUND: ON" : "SOUND: OFF";
         oam_begin();

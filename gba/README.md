@@ -85,7 +85,13 @@ The game also has a 4-page **HOW TO PLAY** guide, on the title screen, in the ca
 9. **Coach career:** your record, playoff record, appearances, titles, reputation, best season, total yards, and a history of every past champion alongside your finish that year.
 10. **Getting harder:** the CPU defense gets smarter as your career goes on and in the playoffs. On higher difficulties it adapts to your play calling, playing more zone if you keep throwing deep and blitzing more if you keep running. CPU teams also draft and sign players to keep up.
 
-**QUICK GAME** plays a single exhibition between any two teams and never changes your save. If you leave the title screen alone for 20 seconds, a **demo** starts: the CPU plays a full game, and pressing any button returns to the title.
+**EXHIBITION** (title screen) is a one-off game for practice and quick tests, and it never touches your career save. The setup screen lets you choose:
+- your team and the opponent (LEFT/RIGHT cycles through teams, A opens the team browser);
+- home or away;
+- **quarter length from 1 to 6 minutes** (1-minute quarters make fast tests);
+- difficulty.
+
+After the game you can pick **REMATCH**, **CHANGE SETUP** or **TITLE SCREEN**. If you leave the title screen alone for 20 seconds, a **demo** starts: the CPU plays a full game, and pressing any button returns to the title.
 
 ---
 
